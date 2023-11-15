@@ -6,13 +6,13 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
 {
     public readonly float p_exp, weight, radius;
     public readonly int numPoints;
-    readonly BVHNode2D root;
+    readonly BVHNode3D root;
     bool enabled;
-    public Vector2 center; // For Serialization
+    public Vector3 center; // For Serialization
 
     public bool IsEnabled { get { return enabled; } }
 
-    public Obstacle(float p_exp, float weight, int numPoints, float radius, Vector2 center)
+    public Obstacle(float p_exp, float weight, int numPoints, float radius, Vector3 center)
     {
         this.p_exp = p_exp;
         this.weight = weight;
@@ -23,11 +23,11 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
 
         curveClosed = true;
 
-        List<Vector2> vertPositions = new List<Vector2>();
+        List<Vector3> vertPositions = new();
         for (int i = 0; i < numPoints; i++)
         {
             float alpha = (i / (float)numPoints) * Mathf.PI * 2f;
-            vertPositions.Add(center + radius * new Vector2(Mathf.Cos(alpha), Mathf.Sin(alpha)));
+            vertPositions.Add(center + radius * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
         }
         InitVertsEdgesFromPositions(vertPositions);
 
@@ -35,25 +35,25 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
         //Debug.Log("num childs: " + bvh.TotalLeafCount());
     }
 
-    private BVHNode2D CreateBVHFromVerts()
+    private BVHNode3D CreateBVHFromVerts()
     {
         int numVerts = verts.Count;
-        List<VertexBody4D> vertBodies = new();
+        List<VertexBody6D> vertBodies = new();
 
         for (int i = 0; i < numVerts; i++)
         {
-            VertexBody4D currBody = VertToBody(verts[i]);
+            VertexBody6D currBody = VertToBody(verts[i]);
             vertBodies.Add(currBody);
         }
 
-        BVHNode2D tree = new(vertBodies, 0, null, false);
+        BVHNode3D tree = new(vertBodies, 0, null, false);
         tree.RecomputeCentersOfMass(this);
-        BVHNode2D.globalID = 0;
+        BVHNode3D.globalID = 0;
         tree.RecursivelyAssignIDs();
         return tree;
     }
 
-    private VertexBody4D VertToBody(CurveVertex v)
+    private VertexBody6D VertToBody(CurveVertex v)
     {
         PosTan pt = new(v.Position(), v.Tangent());
         float mass = v.AvgLength();
@@ -66,16 +66,16 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
         int numVerts = curve.NumVerts();
         for (int i = 0; i < numVerts; i++)
         {
-            Vector2 pos = curve.verts[i].Position();
-            Vector2 force = AccumulateForce(root, pos);
+            Vector3 pos = curve.verts[i].Position();
+            Vector3 force = AccumulateForce(root, pos);
             CurveGenUtils.AddToRow(gradient, i, force * weight);
         }
     }
 
-    private Vector2 AccumulateForce(BVHNode2D node, Vector2 point)
+    private Vector3 AccumulateForce(BVHNode3D node, Vector3 point)
     {
         if (node.isEmpty)
-            return Vector2.zero;
+            return Vector3.zero;
 
         if (node.isLeaf)
             return BodyForce(node, point);
@@ -83,22 +83,22 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
         if (node.ShouldUseCell(point))
             return BodyForce(node, point);
 
-        Vector2 total = Vector2.zero;
-        foreach (BVHNode2D child in node.children)
+        Vector3 total = Vector3.zero;
+        foreach (BVHNode3D child in node.children)
             total += AccumulateForce(child, point);
         return total;
     }
 
-    private Vector2 BodyForce(BVHNode2D node, Vector2 point)
+    private Vector3 BodyForce(BVHNode3D node, Vector3 point)
     {
-        Vector2 center = node.centerOfMass;
+        Vector3 center = node.centerOfMass;
         float mass = node.totalMass;
 
-        Vector2 toPoint = center - point;
+        Vector3 toPoint = center - point;
         float dist = toPoint.magnitude;
         toPoint /= dist;
 
-        Vector2 grad_i = toPoint * p_exp / Mathf.Pow(dist, p_exp + 1);
+        Vector3 grad_i = toPoint * p_exp / Mathf.Pow(dist, p_exp + 1);
 
         return mass * grad_i;
     }
@@ -109,13 +109,13 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
         float sumE = 0;
         for (int i = 0; i < numVerts; i++)
         {
-            Vector2 pos = curve.verts[i].Position();
+            Vector3 pos = curve.verts[i].Position();
             sumE += AccumulateEnergy(root, pos);
         }
         return weight * sumE;
     }
 
-    private float AccumulateEnergy(BVHNode2D node, Vector2 point)
+    private float AccumulateEnergy(BVHNode3D node, Vector3 point)
     {
         if (node.isEmpty)
             return 0;
@@ -127,14 +127,14 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
             return BodyEnergy(node, point);
 
         float total = 0;
-        foreach (BVHNode2D child in node.children)
+        foreach (BVHNode3D child in node.children)
             total += AccumulateEnergy(child, point);
         return total;
     }
 
-    private float BodyEnergy(BVHNode2D node, Vector2 point)
+    private float BodyEnergy(BVHNode3D node, Vector3 point)
     {
-        Vector2 center = node.centerOfMass;
+        Vector3 center = node.centerOfMass;
         float mass = node.totalMass;
         float distance = (center - point).magnitude;
         return 1.0f / Mathf.Pow(distance, p_exp);

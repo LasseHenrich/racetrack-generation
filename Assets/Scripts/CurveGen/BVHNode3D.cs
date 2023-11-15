@@ -5,24 +5,24 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BVHNode2D
+public class BVHNode3D
 {
     public static int globalID;
     public int thisNodeID;
     public int numNodes;
     public float totalMass;
-    public Vector2 centerOfMass;
+    public Vector3 centerOfMass;
 
-    private Vector2 averageTangent;
+    private Vector3 averageTangent;
     private readonly List<int> clusterIndices = new();
-    private readonly BVHNode2D bvhRoot;
+    private readonly BVHNode3D bvhRoot;
     private readonly Vector<float> fullMasses;
 
     // Fields for use by matrix-vector products.
     // Not used by any BVH functions.
 
-    public List<BVHNode2D> children = new();
-    private readonly VertexBody4D body = new();
+    public List<BVHNode3D> children = new();
+    private readonly VertexBody6D body = new();
 
     int numElements;
 
@@ -33,7 +33,7 @@ public class BVHNode2D
     private PosTan maxCoords;
     private const float thresholdTheta = 0.25f;
 
-    public BVHNode2D(List<VertexBody4D> points, int axis, BVHNode2D root, bool splitTangents)
+    public BVHNode3D(List<VertexBody6D> points, int axis, BVHNode3D root, bool splitTangents)
     {
         if (root == null) bvhRoot = this;
         else bvhRoot = root;
@@ -67,8 +67,8 @@ public class BVHNode2D
         {
             // Reserve space for splitting the points into lesser and greater
             int numPoints = points.Count;
-            List<VertexBody4D> lesserPoints = new List<VertexBody4D>();
-            List<VertexBody4D> greaterPoints = new List<VertexBody4D>();
+            List<VertexBody6D> lesserPoints = new();
+            List<VertexBody6D> greaterPoints = new();
 
             // Compute the plane over which to split the points;
             splitPoint = AxisSplittingPlane(points, axis);
@@ -93,9 +93,9 @@ public class BVHNode2D
             else
                 nextAxis = NextSpatialAxis(axis);
 
-            BVHNode2D nextRoot = root ?? null;
-            BVHNode2D lesserNode = new(lesserPoints, nextAxis, nextRoot, splitTangents);
-            BVHNode2D greaterNode = new(greaterPoints, nextAxis, nextRoot, splitTangents);
+            BVHNode3D nextRoot = root ?? null;
+            BVHNode3D lesserNode = new(lesserPoints, nextAxis, nextRoot, splitTangents);
+            BVHNode3D greaterNode = new(greaterPoints, nextAxis, nextRoot, splitTangents);
 
             children.Add(lesserNode);
             children.Add(greaterNode);
@@ -119,16 +119,16 @@ public class BVHNode2D
 
     private int NextSpatialAxis(int axis)
     {
-        if (axis < 2) return (axis + 1) % 2;
+        if (axis < 3) return (axis + 1) % 3;
         else return 0;
     }
 
     private int NextAxis(int axis)
     {
-        return (axis + 1) % 4;
+        return (axis + 1) % 6;
     }
 
-    private float AxisSplittingPlane(List<VertexBody4D> points, int axis)
+    private float AxisSplittingPlane(List<VertexBody6D> points, int axis)
     {
         int numPoints = points.Count;
         List<float> coords = new List<float>();
@@ -158,14 +158,16 @@ public class BVHNode2D
         return splitPoint;
     }
 
-    private float GetCoordFromBody(VertexBody4D body, int axis)
+    private float GetCoordFromBody(VertexBody6D body, int axis)
     {
         return axis switch
         {
             0 => body.pt.position.x,
             1 => body.pt.position.y,
-            2 => body.pt.tangent.x,
-            3 => body.pt.tangent.y,
+            2 => body.pt.position.z,
+            3 => body.pt.tangent.x,
+            4 => body.pt.tangent.y,
+            5 => body.pt.tangent.z,
             _ => throw new ArgumentException("Invalid axis passed to GetCoordFromBody"),
         };
     }
@@ -193,8 +195,8 @@ public class BVHNode2D
             maxCoords = children[0].maxCoords;
 
             totalMass = 0;
-            centerOfMass = Vector2.zero;
-            averageTangent = Vector2.zero;
+            centerOfMass = Vector3.zero;
+            averageTangent = Vector3.zero;
 
             // Accumulate max / min over all nonempty children
             for (int i = 0; i < children.Count; i++)
@@ -271,7 +273,7 @@ public class BVHNode2D
     internal void RecursivelyAssignIDs()
     {
         thisNodeID = globalID++;
-        foreach (BVHNode2D child in children)
+        foreach (BVHNode3D child in children)
             child.RecursivelyAssignIDs();
     }
 
@@ -290,13 +292,13 @@ public class BVHNode2D
                 if (j_pt == i_pt) return;
 
                 // Add i and neighbors of i
-                List<CurveVertex> i_pts = new List<CurveVertex>();
+                List<CurveVertex> i_pts = new();
                 i_pts.Add(i_pt);
                 for (int e = 0; e < i_pt.NumEdges(); e++)
                     i_pts.Add(i_pt.Edge(e).Opposite(i_pt));
 
                 // Add j and neighbors of j
-                List<CurveVertex> j_pts = new List<CurveVertex>();
+                List<CurveVertex> j_pts = new();
                 j_pts.Add(j_pt);
                 for (int e = 0; e < j_pt.NumEdges(); e++)
                     j_pts.Add(j_pt.Edge(e).Opposite(j_pt));
@@ -317,19 +319,19 @@ public class BVHNode2D
             // With an edge, we have to pass in a TangentMassPoint instead
             else if (body.type == BodyType.Edge)
             {
-                Vector2 tangent = body.pt.tangent;
+                Vector3 tangent = body.pt.tangent;
                 tangent = tangent.normalized;
                 CurveEdge edge = curve.edges[body.elementIndex];
                 CurveVertex j1 = edge.GetPrevVertex();
                 CurveVertex j2 = edge.GetNextVertex();
 
                 // Add i and neighbors of i
-                List<CurveVertex> i_pts = new List<CurveVertex>();
+                List<CurveVertex> i_pts = new();
                 i_pts.Add(i_pt);
                 for (int e = 0; e < i_pt.NumEdges(); e++)
                     i_pts.Add(i_pt.Edge(e).Opposite(i_pt));
 
-                TangentMassPoint jm = new TangentMassPoint(tangent, body.mass, body.pt.position, j1, j2);
+                TangentMassPoint jm = new(tangent, body.mass, body.pt.position, j1, j2);
 
                 if (i_pt != j1 && i_pt != j2)
                 {
@@ -345,13 +347,13 @@ public class BVHNode2D
         {
             if (ShouldUseCell(i_pt.Position()))
             {
-                Vector2 tangent = averageTangent;
+                Vector3 tangent = averageTangent;
                 tangent = tangent.normalized;
                 // This cell is far enough away that we can treat it as a single body
-                TangentMassPoint j = new TangentMassPoint(tangent, totalMass, centerOfMass, null, null);
+                TangentMassPoint j = new(tangent, totalMass, centerOfMass, null, null);
 
                 // Add i and neighbors of i
-                List<CurveVertex> i_pts = new List<CurveVertex>();
+                List<CurveVertex> i_pts = new();
                 i_pts.Add(i_pt);
                 for (int e = 0; e < i_pt.NumEdges(); e++)
                     i_pts.Add(i_pt.Edge(e).Opposite(i_pt));
@@ -375,7 +377,7 @@ public class BVHNode2D
         }
     }
 
-    public bool ShouldUseCell(Vector2 vertPos)
+    public bool ShouldUseCell(Vector3 vertPos)
     {
         // ToDo: Take into account some tangent-related criteria?
         float f = (centerOfMass - vertPos).magnitude;
@@ -387,11 +389,11 @@ public class BVHNode2D
     private float NodeRatio(float f)
     {
         // Compute diagonal distance from corner to corner
-        Vector2 diag = maxCoords.position - minCoords.position;
+        Vector3 diag = maxCoords.position - minCoords.position;
         return diag.magnitude / f;
     }
 
-    internal float TotalEnergy(EnergyCurve curve, BVHNode2D root)
+    internal float TotalEnergy(EnergyCurve curve, BVHNode3D root)
     {
         int numVerts = curve.NumVerts();
         float fullSum = 0;
@@ -446,7 +448,7 @@ public class BVHNode2D
 
     private float BodyEnergyEvaluation(CurveVertex i_pt)
     {
-        Vector2 tangent = averageTangent;
+        Vector3 tangent = averageTangent;
         tangent = tangent.normalized;
         return TPE.GetInstance.TpePairPts(i_pt.Position(), centerOfMass, tangent, i_pt.AvgLength(), totalMass);
     }
@@ -456,7 +458,7 @@ public class BVHNode2D
         if (isLeaf) return 1;
 
         int childCount = 0;
-        foreach (BVHNode2D child in children)
+        foreach (BVHNode3D child in children)
             childCount += child.TotalLeafCount();
 
         return childCount;
@@ -472,13 +474,13 @@ public enum TPEPointType
 
 public class TangentMassPoint
 {
-    public Vector2 tangent;
+    public Vector3 tangent;
     public float mass;
-    public Vector2 point;
+    public Vector3 point;
     public CurveVertex curvePt;
     public CurveVertex curvePt2;
 
-    public TangentMassPoint(Vector2 tangent, float mass, Vector2 point, CurveVertex curvePt, CurveVertex curvePt2)
+    public TangentMassPoint(Vector3 tangent, float mass, Vector3 point, CurveVertex curvePt, CurveVertex curvePt2)
     {
         this.tangent = tangent;
         this.mass = mass;

@@ -62,6 +62,13 @@ public class ToolWindow : MonoBehaviour
         CreateFloatField(name + " Y", ref input.y);
     }
 
+    protected void CreateVector3Field(string name, ref Vector3 input)
+    {
+        CreateFloatField(name + " X", ref input.x);
+        CreateFloatField(name + " Y", ref input.y);
+        CreateFloatField(name + " Z", ref input.z);
+    }
+
     protected void CreateButton(string name, System.Action callback)
     {
         if (GUILayout.Button(name)) callback();

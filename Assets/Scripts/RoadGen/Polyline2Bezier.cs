@@ -11,7 +11,7 @@ using UnityEngine;
 
 public static class PolylineToBezier
 {
-    static List<Vector2> bezierSpline;
+    static List<Vector3> bezierSpline;
     static float epsilon = 0.2f; // User-specified error that must be satisfied
     static float psi = 2f;       // In range [epsilon, psi) we try to minimize the error by reparameterization
     const int maxIterations = 10; // Reparameterization is tried maxIterations times 
@@ -23,16 +23,16 @@ public static class PolylineToBezier
     /// <param name="epsilon">User-specified error that must be satisfied</param>
     /// <param name="psi">In range [epsilon, psi) we try to minimize the error by reparameterization</param>
     /// <returns>A list of control- and anchor-points</returns>
-    public static List<Vector2> Convert(List<Vector2> d, float epsilon, float psi)
+    public static List<Vector3> Convert(List<Vector3> d, float epsilon, float psi)
     {
         PolylineToBezier.epsilon = epsilon;
         PolylineToBezier.psi = psi;
 
-        bezierSpline = new List<Vector2>();
+        bezierSpline = new List<Vector3>();
         d.Add(d[0]); // Add first point as last point
 
-        Vector2 tHat1 = (d[1] - d[0]).normalized;   // Unit tangent 1
-        Vector2 tHat2 = (d[^2] - d[^1]).normalized; // Unit tangent 2
+        Vector3 tHat1 = (d[1] - d[0]).normalized;   // Unit tangent 1
+        Vector3 tHat2 = (d[^2] - d[^1]).normalized; // Unit tangent 2
         FitCubic(d, 0, d.Count - 1, tHat1, tHat2);
 
         bezierSpline.RemoveAt(bezierSpline.Count - 1); // Remove last anchor, as it's the same as first
@@ -42,7 +42,7 @@ public static class PolylineToBezier
         return bezierSpline;
     }
 
-    static void AddSegment(Vector2[] bezierCurve)
+    static void AddSegment(Vector3[] bezierCurve)
     {
         //bezierCurve.ToList().ForEach(x => Debug.Log(x));
         if (bezierSpline.Count == 0)
@@ -59,17 +59,17 @@ public static class PolylineToBezier
     /// <param name="last">Index of last point in region</param>
     /// <param name="tHat1">Endpoint 1 tangent</param>
     /// <param name="tHat2">Endpoint 2 tangent</param>
-    static void FitCubic(List<Vector2> d, int first, int last, Vector2 tHat1, Vector2 tHat2)
+    static void FitCubic(List<Vector3> d, int first, int last, Vector3 tHat1, Vector3 tHat2)
     {
         //Debug.Log("FitCubic from " + first + " to " + last + " with tHat1 " + tHat1 + " and tHat2 " + tHat2);
 
-        Vector2[] bezierCurve = new Vector2[4];
+        Vector3[] bezierCurve = new Vector3[4];
         int numPoints = last - first + 1;
 
         // If region only consists of two points, use heuristic
         if (numPoints == 2)
         {
-            float dist = Vector2.Distance(d[last], d[first]) / 3f;
+            float dist = Vector3.Distance(d[last], d[first]) / 3f;
 
             bezierCurve[0] = d[first];
             bezierCurve[3] = d[last];
@@ -119,7 +119,7 @@ public static class PolylineToBezier
         }
 
         // Fitting failed -- Split at maximum error point and fit recursively
-        Vector2 tHatCenter = ComputeCenterTangent(d, splitPoint);
+        Vector3 tHatCenter = ComputeCenterTangent(d, splitPoint);
         FitCubic(d, first, splitPoint, tHat1, tHatCenter);
         FitCubic(d, splitPoint, last, -tHatCenter, tHat2);
     }
@@ -130,10 +130,10 @@ public static class PolylineToBezier
     /// <param name="d">Digitized points</param>
     /// <param name="center">Index of point inside region</param>
     /// <returns></returns>
-    static Vector2 ComputeCenterTangent(List<Vector2> d, int center)
+    static Vector3 ComputeCenterTangent(List<Vector3> d, int center)
     {
-        Vector2 V1 = d[center - 1] - d[center];
-        Vector2 V2 = d[center] - d[center + 1];
+        Vector3 V1 = d[center - 1] - d[center];
+        Vector3 V2 = d[center] - d[center + 1];
         return (V1 + V2).normalized;
     }
 
@@ -146,10 +146,10 @@ public static class PolylineToBezier
     /// <param name="u">Current parameterization</param>
     /// <param name="bezierCurve">Current fitted curve</param>
     /// <returns></returns>
-    static List<float> Reparameterize(List<Vector2> d, int first, int last, List<float> u, Vector2[] bezierCurve)
+    static List<float> Reparameterize(List<Vector3> d, int first, int last, List<float> u, Vector3[] bezierCurve)
     {
         List<float> uPrime = new();
-        Vector2[] _bezierCurve = (Vector2[])bezierCurve.Clone();
+        Vector3[] _bezierCurve = (Vector3[])bezierCurve.Clone();
 
         for (int i = first; i <= last; i++)
             uPrime.Add(NewtonRaphsonRootFind(_bezierCurve, d[i], u[i - first]));
@@ -163,26 +163,26 @@ public static class PolylineToBezier
     /// <param name="P">Digitized point</param>
     /// <param name="u">Parameter value for "P"</param>
     /// <returns></returns>
-    static float NewtonRaphsonRootFind(Vector2[] Q, Vector2 P, float u)
+    static float NewtonRaphsonRootFind(Vector3[] Q, Vector3 P, float u)
     {
         //List<Vector2> Q = new(_Q);
 
         // Compute Q(u)
-        Vector2 Q_u = Bezier(Q, u);
+        Vector3 Q_u = Bezier(Q, u);
 
         // Generate control vetices for Q'
-        Vector2[] Q1 = new Vector2[3];
+        Vector3[] Q1 = new Vector3[3];
         for (int i = 0; i < 3; i++)
             Q1[i] = (Q[i + 1] - Q[i]) * 3f;
 
         // Geneate control vertices for Q''
-        Vector2[] Q2 = new Vector2[2];
+        Vector3[] Q2 = new Vector3[2];
         for (int i = 0; i < 2; i++)
             Q2[i] = (Q1[i + 1] - Q1[i]) * 2f;
 
         // Compute Q'(u) and Q''(u)
-        Vector2 Q1_u = Bezier(Q1, u);
-        Vector2 Q2_u = Bezier(Q2, u);
+        Vector3 Q1_u = Bezier(Q1, u);
+        Vector3 Q2_u = Bezier(Q2, u);
 
         // Comptue f(u)/f'(u)
         float numerator = (Q_u.x - P.x) * (Q1_u.x) + (Q_u.y - P.y) * (Q1_u.y);
@@ -196,10 +196,10 @@ public static class PolylineToBezier
     /// </summary>
     /// <param name="V"></param>
     /// <param name="t"></param>
-    static Vector2 Bezier(Vector2[] V, float t)
+    static Vector3 Bezier(Vector3[] V, float t)
     {
         int degree = V.Length - 1;
-        List<Vector2> Vtemp = new(V);
+        List<Vector3> Vtemp = new(V);
 
         // Triangle computation
         for (int i = 1; i <= degree; i++)
@@ -219,14 +219,14 @@ public static class PolylineToBezier
     /// <param name="u">Parameterization of points</param>
     /// <param name="splitPoint">Point of maximum error</param>
     /// <returns></returns>
-    static float ComputeMaxError(List<Vector2> d, int first, int last, Vector2[] bezierCurve, List<float> u, ref int splitPoint)
+    static float ComputeMaxError(List<Vector3> d, int first, int last, Vector3[] bezierCurve, List<float> u, ref int splitPoint)
     {
         splitPoint = (last - first + 1) / 2;
         float maxDist = 0f;
         for (int i = first + 1; i < last; i++)
         {
-            Vector2 P = Bezier(bezierCurve, u[i - first]);
-            Vector2 V = P - d[i];
+            Vector3 P = Bezier(bezierCurve, u[i - first]);
+            Vector3 V = P - d[i];
             float dist = V.sqrMagnitude;
             if (dist >= maxDist)
             {
@@ -248,13 +248,13 @@ public static class PolylineToBezier
     /// <param name="tHat1">Unit tangent at endpoint 1</param>
     /// <param name="tHat2">Unit tangent at endpoint 2</param>
     /// <returns></returns>
-    static Vector2[] GenerateBezier(List<Vector2> d, int first, int last, List<float> uPrime, Vector2 tHat1, Vector2 tHat2)
+    static Vector3[] GenerateBezier(List<Vector3> d, int first, int last, List<float> uPrime, Vector3 tHat1, Vector3 tHat2)
     {
-        Vector2[] bezierCurve = new Vector2[4];
+        Vector3[] bezierCurve = new Vector3[4];
         int numPoints = last - first + 1;
 
         // Compute A
-        Vector2[,] A = new Vector2[numPoints, 2]; // Percomputed rhs of equation
+        Vector3[,] A = new Vector3[numPoints, 2]; // Percomputed rhs of equation
         for (int i = 0; i < numPoints; i++)
         {
             A[i, 0] = tHat1 * B1(uPrime[i]);
@@ -267,24 +267,24 @@ public static class PolylineToBezier
 
         for (int i = 0; i < numPoints; i++)
         {
-            C[0, 0] += Vector2.Dot(A[i, 0], A[i, 0]);
-            C[0, 1] += Vector2.Dot(A[i, 0], A[i, 1]);
+            C[0, 0] += Vector3.Dot(A[i, 0], A[i, 0]);
+            C[0, 1] += Vector3.Dot(A[i, 0], A[i, 1]);
             C[1, 0] = C[0, 1];
-            C[1, 1] += Vector2.Dot(A[i, 1], A[i, 1]);
+            C[1, 1] += Vector3.Dot(A[i, 1], A[i, 1]);
             //Debug.Log(C[0, 0]);
             //Debug.Log(C[0, 1]);
             //Debug.Log(C[1, 0]);
             //Debug.Log(C[1, 1]);
 
-            Vector2 tmp = d[first + i] - (
+            Vector3 tmp = d[first + i] - (
                 d[first] * B0(uPrime[i]) +
                 d[first] * B1(uPrime[i]) +
                 d[last] * B2(uPrime[i]) +
                 d[last] * B3(uPrime[i])
                 );
 
-            X[0] += Vector2.Dot(A[i, 0], tmp);
-            X[1] += Vector2.Dot(A[i, 1], tmp);
+            X[0] += Vector3.Dot(A[i, 0], tmp);
+            X[1] += Vector3.Dot(A[i, 1], tmp);
         }
 
         // Compute the determinants of C and X
@@ -331,13 +331,13 @@ public static class PolylineToBezier
 
     static void ResolveContinuity()
     {
-        Vector2 firstControlVec = bezierSpline[1] - bezierSpline[0];
+        Vector3 firstControlVec = bezierSpline[1] - bezierSpline[0];
         float firstControlLength = firstControlVec.magnitude;
-        Vector2 lastControlVec = bezierSpline[^1] - bezierSpline[0];
+        Vector3 lastControlVec = bezierSpline[^1] - bezierSpline[0];
         float lastControlLength = lastControlVec.magnitude;
 
-        Vector2 newFirstControlVec = (firstControlVec * firstControlLength - lastControlVec * lastControlLength).normalized * firstControlLength; // Weighted Average
-        Vector2 newLastControlVec = (lastControlVec * lastControlLength - firstControlVec * firstControlLength).normalized * lastControlLength;
+        Vector3 newFirstControlVec = (firstControlVec * firstControlLength - lastControlVec * lastControlLength).normalized * firstControlLength; // Weighted Average
+        Vector3 newLastControlVec = (lastControlVec * lastControlLength - firstControlVec * firstControlLength).normalized * lastControlLength;
 
         bezierSpline[1] = bezierSpline[0] + newFirstControlVec;
         bezierSpline[^1] = bezierSpline[0] + newLastControlVec;
@@ -372,7 +372,7 @@ public static class PolylineToBezier
     /// <param name="first">Index of first point in region</param>
     /// <param name="last">Index of last point in region</param>
     /// <returns></returns>
-    static List<float> ChordLengthParameterization(List<Vector2> d, int first, int last)
+    static List<float> ChordLengthParameterization(List<Vector3> d, int first, int last)
     {
         List<float> u = new()
         {
@@ -380,7 +380,7 @@ public static class PolylineToBezier
         };
 
         for (int i = first + 1; i <= last; i++)
-            u.Add(u[i - first - 1] + Vector2.Distance(d[i], d[i - 1]));
+            u.Add(u[i - first - 1] + Vector3.Distance(d[i], d[i - 1]));
 
         for (int i = first + 1; i <= last; i++)
             u[i - first] /= u[last - first];

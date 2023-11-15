@@ -9,7 +9,7 @@ public static class MyMath
     /// <summary>
     /// If intersecting, returns 0 <= t, u <= 1. Works in 2D with xz
     /// </summary>
-    public static (float t, float u) Intersection(List<Vector2> points, int a_refPoint, int a_dirPoint, int b_refPoint, int b_dirPoint)
+    public static (float t, float u) Intersection(List<Vector3> points, int a_refPoint, int a_dirPoint, int b_refPoint, int b_dirPoint)
     {
         return Intersection(
             points[a_refPoint],
@@ -19,7 +19,7 @@ public static class MyMath
         );
     }
 
-    public static (float t, float u) Intersection(Vector2 a_refPoint, Vector2 a_dirWithLength, Vector2 b_refPoint, Vector2 b_dirWithLength)
+    public static (float t, float u) Intersection(Vector3 a_refPoint, Vector3 a_dirWithLength, Vector3 b_refPoint, Vector3 b_dirWithLength)
     {
         var A = Matrix<float>.Build.DenseOfArray(new float[,]
         {
@@ -39,13 +39,13 @@ public static class MyMath
         return (t, u);
     }
 
-    public static Vector3 xzToX0Z(Vector2 xz)
+    public static Vector3 xzToX0Z(Vector3 xz)
     {
         return new Vector3(xz.x, 0, xz.y);
     }
 
-    public static Vector2 xyzToXZ(Vector3 xyz)
+    public static Vector3 xyzToXZ(Vector3 xyz)
     {
-        return new Vector2(xyz.x, xyz.z);
+        return new Vector3(xyz.x, xyz.z);
     }
 }

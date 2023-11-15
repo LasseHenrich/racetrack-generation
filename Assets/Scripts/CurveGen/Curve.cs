@@ -15,7 +15,7 @@ public class Curve
     protected bool curveClosed;
 
     #region Serialization
-    public List<Vector2> s_posList;
+    public List<Vector3> s_posList;
     #endregion
 
     /// <summary>
@@ -23,10 +23,10 @@ public class Curve
     /// will be treated as a list of continuously connected vertices.
     /// </summary>
     /// <param name="posList"></param>
-    protected void InitVertsEdgesFromPositions(List<Vector2> posList)
+    protected void InitVertsEdgesFromPositions(List<Vector3> posList)
     {
         int numVerts = posList.Count;
-        positions = Matrix<float>.Build.Dense(numVerts, 2);
+        positions = Matrix<float>.Build.Dense(numVerts, 3);
 
         verts = new List<CurveVertex>();
         for (int i = 0; i < numVerts; i++)
@@ -70,7 +70,7 @@ public class Curve
 
     public void SerializeVertsEdgesPositions()
     {
-        s_posList = new List<Vector2>();
+        s_posList = new List<Vector3>();
         for (int i = 0; i < positions.RowCount; i++)
         {
             s_posList.Add(new(positions.Row(i)[0], positions.Row(i)[1]));
@@ -93,9 +93,9 @@ public class CurveVertex
         this.index = index;
     }
 
-    public Vector2 Tangent()
+    public Vector3 Tangent()
     {
-        Vector2 tangent = Vector2.zero;
+        Vector3 tangent = Vector3.zero;
         for (int i = 0; i < NumEdges(); i++)
             tangent += Edge(i).Tangent();
         return tangent.normalized;
@@ -119,9 +119,9 @@ public class CurveVertex
         return length / NumEdges();
     }
 
-    public Vector2 Position() => CurveGenUtils.SelectRow(network.positions, index);
+    public Vector3 Position() => CurveGenUtils.SelectRow(network.positions, index);
 
-    public void SetPosition(Vector2 newPos) => CurveGenUtils.SetRow(network.positions, index, newPos);
+    public void SetPosition(Vector3 newPos) => CurveGenUtils.SetRow(network.positions, index, newPos);
 }
 
 public class CurveEdge
@@ -141,7 +141,7 @@ public class CurveEdge
     public CurveVertex GetPrevVertex() => prevVertex;
     public int GetIndex() => index;
 
-    public Vector2 Tangent() => (nextVertex.Position() - prevVertex.Position()).normalized;
+    public Vector3 Tangent() => (nextVertex.Position() - prevVertex.Position()).normalized;
 
     public float Length() => (nextVertex.Position() - prevVertex.Position()).magnitude;
 
@@ -161,5 +161,5 @@ public class CurveEdge
         return shared && (!other.Equals(this));
     }
 
-    public Vector2 Midpoint() => (nextVertex.Position() + prevVertex.Position()) * 0.5f;
+    public Vector3 Midpoint() => (nextVertex.Position() + prevVertex.Position()) * 0.5f;
 }

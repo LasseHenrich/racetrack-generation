@@ -245,7 +245,7 @@ public class ControlWindow : ToolWindow
                             CreateFloatField("Weight", ref obs.weight);
                             CreateIntField("Points", ref obs.numPoints);
                             CreateFloatField("Radius", ref obs.radius);
-                            CreateVector2Field("Center", ref obs.center);
+                            CreateVector3Field("Center", ref obs.center);
 
                             GUILayout.EndHorizontal();
                         }
@@ -459,7 +459,7 @@ public class ControlWindow : ToolWindow
 
     void PrintPolyline()
     {
-        List<Vector2> polyline = Curve.Polyline;
+        List<Vector3> polyline = Curve.Polyline;
         string output = "";
         output += '[';
         for (int i = 0; i < polyline.Count; i++)

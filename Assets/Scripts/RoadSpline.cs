@@ -12,11 +12,11 @@ using UnityEngine;
 
 public class RoadSpline : Spline
 {
-    public RoadSpline(Vector2 centre) : base(centre)
+    public RoadSpline(Vector3 centre) : base(centre)
     {
     }
 
-    public RoadSpline(List<Vector2> points, bool controlPointsIncluded = false, bool alreadyClosed = false) : base(points, controlPointsIncluded, alreadyClosed)
+    public RoadSpline(List<Vector3> points, bool controlPointsIncluded = false, bool alreadyClosed = false) : base(points, controlPointsIncluded, alreadyClosed)
     {
     }
 
@@ -35,10 +35,10 @@ public class RoadSpline : Spline
             {
                 if (Mathf.Min(Mathf.Abs(i - j + points.Count), Mathf.Abs(i - j - points.Count), Mathf.Abs(i - j)) < 5) continue;
 
-                Vector2 disp = points[i] - points[j];
-                Vector2 t_i = Tangent(i, points);
+                Vector3 disp = points[i] - points[j];
+                Vector3 t_i = Tangent(i, points);
 
-                Vector2 normal_proj = disp - Vector2.Dot(disp, t_i) * t_i;
+                Vector3 normal_proj = disp - Vector3.Dot(disp, t_i) * t_i;
                 float numer = disp.sqrMagnitude;
                 float denom = normal_proj.magnitude;
                 float value = numer / denom;
@@ -107,12 +107,12 @@ public class RoadSpline : Spline
 
         //Debug.Log("shortestDist after point-to-point distance: " + shortestDist);
 
-        var unitTangents = new List<Vector2>();
+        var unitTangents = new List<Vector3>();
         for (int i = 0; i < points.Count; i++)
         {
             unitTangents.Add(UnitTangent(segmentIndexOfPoint(i), ts[i]));
         }
-        var unitNormals = unitTangents.Select(t => t = new Vector2(t.y, -t.x)).ToList();
+        var unitNormals = unitTangents.Select(t => t = new Vector3(t.y, -t.x, 0)).ToList();
 
         minPointOffset = 5 / spacing;
 
@@ -189,7 +189,7 @@ public class RoadSpline : Spline
     #region Creating the Mesh
 
     // Invserse Function of GetDstAlongSpline
-    public (Vector2 point, int segIndex, float t) CalculatePointAtDist(float dist, float resolution = 1)
+    public (Vector3 point, int segIndex, float t) CalculatePointAtDist(float dist, float resolution = 1)
     {
         if (dist >= TotalLength)
         {
@@ -215,11 +215,11 @@ public class RoadSpline : Spline
         }
 
         int divisions = (int)(10 * GetSegmentLength(segIndex) * resolution);
-        Vector2[] p = GetPointsInSegment(segIndex);
-        Vector2 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
+        Vector3[] p = GetPointsInSegment(segIndex);
+        Vector3 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
         float totalMeasuredLength = prevSegsLength;
         float t = 0;
-        Vector2 point = p[0];
+        Vector3 point = p[0];
 
         if (totalMeasuredLength < dist) // Otherwise, t = 0
         {
@@ -227,7 +227,7 @@ public class RoadSpline : Spline
             {
                 t = (i + 1) / (float)divisions;
                 point = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
-                totalMeasuredLength += Vector2.Distance(point, previousPoint);
+                totalMeasuredLength += Vector3.Distance(point, previousPoint);
                 previousPoint = point;
                 if (totalMeasuredLength > dist)
                     break;
@@ -240,14 +240,14 @@ public class RoadSpline : Spline
         //return CalculatePointAfterRef(spacingToRef: dist, 0, 0, resolution);
     }
 
-    public (Vector2 point, int segIndex, float t) GetLastPoint()
+    public (Vector3 point, int segIndex, float t) GetLastPoint()
     {
         if (IsClosed)
             return GetFirstPoint(); // For more accurate looping. I don't know why, but this is slightly different
         return (controls[^1], NumSegments - 1, 1);
     }
 
-    public (Vector2 point, int segIndex, float t) GetFirstPoint()
+    public (Vector3 point, int segIndex, float t) GetFirstPoint()
     {
         return (FirstPoint, 0, 0);
     }
@@ -260,7 +260,7 @@ public class RoadSpline : Spline
     /// <param name="refT">t of previous point</param>
     /// <param name="resolution"></param>
     /// <returns>point, segmentIndex, t</returns>
-    public (Vector2 point, int segIndex, float t) CalculatePointAfterRef(float spacingToRef, int refSegIndex, float refT, float resolution = 1)
+    public (Vector3 point, int segIndex, float t) CalculatePointAfterRef(float spacingToRef, int refSegIndex, float refT, float resolution = 1)
     {
         // Note: This algorithm should be adapted to not calculate through every possible sement until the point
         // Instead, we can just skip all segments that are clearly before the point and then only calculate within the next segment
@@ -268,30 +268,30 @@ public class RoadSpline : Spline
         if (spacingToRef > TotalLength)
             spacingToRef -= TotalLength;
 
-        Vector2[] p_ref = GetPointsInSegment(refSegIndex);
-        Vector2 refPoint = Bezier.EvaluateCubic(p_ref[0], p_ref[1], p_ref[2], p_ref[3], refT);
+        Vector3[] p_ref = GetPointsInSegment(refSegIndex);
+        Vector3 refPoint = Bezier.EvaluateCubic(p_ref[0], p_ref[1], p_ref[2], p_ref[3], refT);
 
         float t = refT;
         bool looped = false;
         float spacing = 0;
-        Vector2 prev_pointOnCurve = refPoint;
+        Vector3 prev_pointOnCurve = refPoint;
 
         for (int segmentIndex = refSegIndex; segmentIndex < NumSegments; segmentIndex++)
         {
-            Vector2[] p = GetPointsInSegment(segmentIndex);
+            Vector3[] p = GetPointsInSegment(segmentIndex);
             float segmentLength = GetSegmentLength(segmentIndex);
             int divisions = Mathf.CeilToInt(segmentLength * resolution * 10);
 
             while (t <= 1f)
             {
 
-                Vector2 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
+                Vector3 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
                 float dstTo_prev_pointOnCurve = Vector2.Distance(prev_pointOnCurve, pointOnCurve);
                 spacing += dstTo_prev_pointOnCurve;
 
                 if (spacing >= spacingToRef)
                 {
-                    Vector2 point = pointOnCurve;
+                    Vector3 point = pointOnCurve;
                     float overshootDst = spacing - spacingToRef;
                     point -= (pointOnCurve - refPoint).normalized * overshootDst;
                     if (spacing > 0)
@@ -314,7 +314,7 @@ public class RoadSpline : Spline
                 if (looped)
                 {
                     Debug.LogError("Something went wrong: Looped two times during point calculation. Maybe spacingToPrev is too large?");
-                    return (Vector2.zero, -1, -1);
+                    return (Vector3.zero, -1, -1);
                 }
                 looped = true;
                 segmentIndex = -1; // (The loop will set it to 0)
@@ -322,7 +322,7 @@ public class RoadSpline : Spline
         }
 
         Debug.LogError("Something went wrong: Shouldn't be here.");
-        return (Vector2.zero, -1, -1);
+        return (Vector3.zero, -1, -1);
     }
 
     #endregion
@@ -337,8 +337,8 @@ public class RoadSpline : Spline
     public void AddIntersections(float preferredDistance)
     {
         float spacing = 0.2f;
-        List<Vector2> points = CalculateEvenlySpacedPoints(spacing, out List<int> indicesOfSegments);
-        List<Vector2> tangents = GetTangents(points);
+        List<Vector3> points = CalculateEvenlySpacedPoints(spacing, out List<int> indicesOfSegments);
+        List<Vector3> tangents = GetTangents(points);
 
         int minIndicesDist = (int)(10 / spacing);                // Minimum Distance betweeen Indices of points of one pair
         float maxTangentCrossThreshold = 0.05f; // Every Cross(tan[i],-tan[j]) below this number will be a valid candidate
@@ -356,15 +356,15 @@ public class RoadSpline : Spline
                 {
                     //Debug.Log("Points " + i + " and " + j + " are far enough apart: " + points[i] + " & " + points[j]);
 
-                    float tangentCross = Mathf.Abs(CurveGenUtils.Cross(tangents[i], -tangents[j]));
+                    float tangentCross = Vector3.Cross(tangents[i], -tangents[j]).magnitude;
 
                     // Are lines roughly parallel?
                     if (tangentCross < maxTangentCrossThreshold)
                     {
                         //Debug.Log("Tangents rougly parallel: " + tangents[i] + " & " + tangents[j]);
 
-                        Vector2 unitDisp_i2j = (points[j] - points[i]).normalized;
-                        Vector2 meanTangent = (tangents[i] + tangents[j]); // At this point, we don't know whether it points from i to j or j to i
+                        Vector3 unitDisp_i2j = (points[j] - points[i]).normalized;
+                        Vector3 meanTangent = (tangents[i] + tangents[j]); // At this point, we don't know whether it points from i to j or j to i
                         if (meanTangent.sqrMagnitude < 0.5f) meanTangent = tangents[i] - tangents[j]; // Should take the inverse of one tangent, because they point in exactly the opposite direction
                         meanTangent.Normalize();
 
@@ -374,20 +374,15 @@ public class RoadSpline : Spline
                             continue;
                         }
 
-                        float dispCross = Mathf.Abs(CurveGenUtils.Cross(unitDisp_i2j, meanTangent));
+                        float dispCross = Vector3.Cross(unitDisp_i2j, meanTangent).magnitude;
 
                         // Do tangents roughly point at each other? Taking the position of the points into account
                         if (dispCross < maxDispCrossTheshold)
                         {
                             //Debug.Log("Points roughly point at each other. Valid candidate found: " + points[i] + " & " + points[j] + ". Tangents: " + tangents[i] + " & " + tangents[j] + " meanTangent was " + meanTangent);
 
-                            if (i == 154 && j == 278)
-                            {
-                                Debug.Log(meanTangent);
-                            }
-
-                            bool i_forward = Vector2.Dot(unitDisp_i2j, (points[LoopIndex(i + 1, points)] - points[i]).normalized) > 0; // tangent points in direction of next point
-                            bool j_forward = Vector2.Dot(unitDisp_i2j, (points[LoopIndex(j + 1, points)] - points[j]).normalized) > 0;
+                            bool i_forward = Vector3.Dot(unitDisp_i2j, (points[LoopIndex(i + 1, points)] - points[i]).normalized) > 0; // tangent points in direction of next point
+                            bool j_forward = Vector3.Dot(unitDisp_i2j, (points[LoopIndex(j + 1, points)] - points[j]).normalized) > 0;
 
                             // Check if both tangents point in right direction on curve, i.e. forward or backwards
                             candidates.Add(new() { i = new() { index = i, forward = i_forward }, j = new() { index = j, forward = j_forward } });
@@ -490,7 +485,7 @@ public class RoadSpline : Spline
 
                             // 2. Create new control-List
                             // Note: Origin is points[0], End is points[^1]. If you " + 1 + 1" it means: +1 for Index->Count and +1 for next control point
-                            List<Vector2> newControls = new();
+                            List<Vector3> newControls = new();
                             if (sortCOPs[0].forward != sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward == sortCOPs[3].forward)  // fbbf or bffb
                             {
                                 if (!sortCOPs[0].forward && sortCOPs[1].forward && sortCOPs[2].forward && !sortCOPs[3].forward) // bffb
@@ -615,7 +610,7 @@ public class RoadSpline : Spline
 
                             void AddControlRange(Tuple<int, int> startCount, bool reversed)
                             {
-                                List<Vector2> toAdd = splineCandidate.controls.GetRange(startCount.Item1, startCount.Item2);
+                                List<Vector3> toAdd = splineCandidate.controls.GetRange(startCount.Item1, startCount.Item2);
                                 if (reversed) toAdd.Reverse();
                                 newControls.AddRange(toAdd);
                             }
@@ -626,12 +621,12 @@ public class RoadSpline : Spline
                             // How they overlap -> how well would a crossing be
                             float badness = 0;
                             float sqrPreferredDistance = preferredDistance * preferredDistance;
-                            badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc1.i.index] - points[cc1.j.index]) - sqrPreferredDistance); // Impact of distance of cc1.i and cc1.j -> The closer the better
-                            badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc2.i.index] - points[cc2.j.index]) - sqrPreferredDistance); // Impact of distance of cc2.i and cc2.j -> The closer the better
+                            badness += Mathf.Abs(Vector3.SqrMagnitude(points[cc1.i.index] - points[cc1.j.index]) - sqrPreferredDistance); // Impact of distance of cc1.i and cc1.j -> The closer the better
+                            badness += Mathf.Abs(Vector3.SqrMagnitude(points[cc2.i.index] - points[cc2.j.index]) - sqrPreferredDistance); // Impact of distance of cc2.i and cc2.j -> The closer the better
                             badness += Mathf.Abs(TotalLength - splineCandidate.TotalLength); // Length of curve should not become much smaller -> We don't wanna lose much information / turns
                             var a_tangent = points[cc1.i.index] - points[cc1.j.index];
                             var b_tangent = points[cc2.i.index] - points[cc2.j.index];
-                            float angle = Vector2.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
+                            float angle = Vector3.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
                             if (angle > Mathf.PI * 0.5f)
                                 angle = Mathf.PI - angle;                                       // [0, Mathf.PI * 0.5f)
                             float invAngle = Mathf.PI * 0.5f - angle;                           // Inversed
@@ -668,11 +663,11 @@ public class RoadSpline : Spline
     /// <summary>
     /// Better version. See https://pomax.github.io/bezierinfo/#splitting.
     /// </summary>
-    public void SplitSegment(Vector2 anchorPos, int segmentIndex, float tInSeg)
+    public void SplitSegment(Vector3 anchorPos, int segmentIndex, float tInSeg)
     {
         int prevAnchorPoint = segmentIndex * 3;
 
-        Vector2 midBeforeCtrlPts = // Mid of two oiginal control points (between green and blue)
+        Vector3 midBeforeCtrlPts = // Mid of two oiginal control points (between green and blue)
             Between(prevAnchorPoint + 1, prevAnchorPoint + 2);
 
         controls[LoopIndex(prevAnchorPoint + 1)] = // set ctrl point after prevAnchorPoint (green to between red and green)
@@ -680,18 +675,18 @@ public class RoadSpline : Spline
         controls[LoopIndex(prevAnchorPoint + 2)] = // set ctrl point before enxt anchor point (blue to between yellow and blue)
             Between(prevAnchorPoint + 2, prevAnchorPoint + 3);
 
-        controls.InsertRange(segmentIndex * 3 + 2, new Vector2[] {
+        controls.InsertRange(segmentIndex * 3 + 2, new Vector3[] {
             BetweenV(controls[LoopIndex(prevAnchorPoint + 1)], midBeforeCtrlPts), // Set first ctrl of new segment
             anchorPos,
             BetweenV(midBeforeCtrlPts, controls[LoopIndex(prevAnchorPoint + 2)])
         });
 
-        Vector2 Between(int a, int b)
+        Vector3 Between(int a, int b)
         {
             return BetweenV(controls[LoopIndex(a)], controls[LoopIndex(b)]);
         }
 
-        Vector2 BetweenV(Vector2 A, Vector2 B)
+        Vector3 BetweenV(Vector3 A, Vector3 B)
         {
             return A + (B - A) * tInSeg;
         }
@@ -702,9 +697,9 @@ public class RoadSpline : Spline
     /// <summary>
     /// Better version. See https://pomax.github.io/bezierinfo/#splitting. Returns two segments à 4 points.
     /// </summary>
-    public (List<Vector2>, List<Vector2>) SplitSegment(List<Vector2> controls, float tInSeg)
+    public (List<Vector3>, List<Vector3>) SplitSegment(List<Vector3> controls, float tInSeg)
     {
-        List<Vector2> newControls = new(controls);
+        List<Vector3> newControls = new(controls);
 
         // HERE WAS SOMETHING WRONG...
         //Vector2 midBeforeCtrlPts = // Mid of two oiginal control points (between green and blue)
@@ -732,14 +727,14 @@ public class RoadSpline : Spline
             controls[3]
         };
 
-        Vector2 Between(int a, int b)
+        Vector3 Between(int a, int b)
         {
             return BetweenV(controls[a], controls[b]);
         }
 
-        Vector2 BetweenV(Vector2 A, Vector2 B)
+        Vector3 BetweenV(Vector3 A, Vector3 B)
         {
-            return Vector2.Lerp(A, B, tInSeg);
+            return Vector3.Lerp(A, B, tInSeg);
         }
 
         return (newControls.GetRange(0, 4), newControls.GetRange(3, 4));
@@ -927,10 +922,10 @@ public class RoadSpline : Spline
 
     class SubSegment
     {
-        public List<Vector2> ctrlPts;
+        public List<Vector3> ctrlPts;
         public Tuple<float, float> startEndOfOrigSeg;
 
-        public SubSegment(List<Vector2> ctrlPts, Tuple<float, float> startEndOfOrigSeg)
+        public SubSegment(List<Vector3> ctrlPts, Tuple<float, float> startEndOfOrigSeg)
         {
             this.ctrlPts = ctrlPts;
             this.startEndOfOrigSeg = startEndOfOrigSeg;
@@ -999,24 +994,24 @@ public class RoadSpline : Spline
         return ((point - prev) + (next - point)).normalized;
         */
 
-        Vector2[] p = GetPointsInSegment(segmentIndex);
+        Vector3[] p = GetPointsInSegment(segmentIndex);
         Vector3 tangent3D = Bezier.Tangent(p[0], p[1], p[2], p[3], t);
-        return new Vector2(tangent3D.x, tangent3D.y).normalized;
+        return tangent3D.normalized;
     }
 
-    Vector2 Tangent(int i, List<Vector2> points)
+    Vector3 Tangent(int i, List<Vector3> points)
     {
-        Vector2 prev = points[(i - 1 + points.Count) % points.Count];
-        Vector2 next = points[(i + 1) % points.Count];
+        Vector3 prev = points[(i - 1 + points.Count) % points.Count];
+        Vector3 next = points[(i + 1) % points.Count];
         return ((points[i] - prev) + (next - points[i])).normalized;
     }
 
-    List<Vector2> GetTangents(List<Vector2> points)
+    List<Vector3> GetTangents(List<Vector3> points)
     {
         return points.Select((p, i) => Tangent(i, points)).ToList();
     }
 
-    public Vector2 FirstPoint
+    public Vector3 FirstPoint
     {
         get
         {
@@ -1039,10 +1034,10 @@ public class RoadSpline : Spline
         return segments;
     }
 
-    public Vector2 Normal(int segIndex, float t)
+    public Vector3 Normal(int segIndex, float t)
     {
         var tangent = UnitTangent(segIndex, t);
-        var normal = new Vector2(-tangent.y, tangent.x);
+        var normal = new Vector3(-tangent.y, tangent.x, 0);
         return normal;
     }
 
@@ -1075,9 +1070,9 @@ class CrossingCandidate
 {
     public CrossingOpeningPoint i, j;
 
-    public float SqrSegLength(List<Vector2> points)
+    public float SqrSegLength(List<Vector3> points)
     {
-        return Vector2.SqrMagnitude(points[i.index] - points[j.index]);
+        return Vector3.SqrMagnitude(points[i.index] - points[j.index]);
     }
 }
 

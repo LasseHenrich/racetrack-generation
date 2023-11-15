@@ -81,7 +81,7 @@ public class VariableConstraintSet
 
     public int NumExpectedCols()
     {
-        return curve.NumVerts() * 2;
+        return curve.NumVerts() * 3;
     }
 
 
@@ -100,7 +100,7 @@ public class VariableConstraintSet
     {
         return type switch
         {
-            ConstraintType.Barycenter => 2,
+            ConstraintType.Barycenter => 3,
             ConstraintType.Length => curve.NumEdges(),
             _ => throw new ArgumentException("Called NumRowsForConstraint on an unimplemented constraint type."),
         };
@@ -208,7 +208,7 @@ public class LengthConstraint : Constraint
 
             // This is the gradient of edge length wrt pt1;
             // the gradient wrt pt2 is just negative of this.
-            Vector2 grad1 = pt1.Position() - pt2.Position();
+            Vector3 grad1 = pt1.Position() - pt2.Position();
             grad1 = grad1.normalized;
 
             int j1 = pt1.GlobalIndex();
@@ -216,12 +216,14 @@ public class LengthConstraint : Constraint
             int start = i + rowStart;
 
             // Write the two gradient entries for pt1 into the row
-            triplets.Add(new Triplet { row = start, column = 2 * j1, value = grad1.x });
-            triplets.Add(new Triplet { row = start, column = 2 * j1 + 1, value = grad1.y });
+            triplets.Add(new Triplet { row = start, column = 3 * j1,     value = grad1.x });
+            triplets.Add(new Triplet { row = start, column = 3 * j1 + 1, value = grad1.y });
+            triplets.Add(new Triplet { row = start, column = 3 * j1 + 2, value = grad1.z });
 
             // Similarly, write the two gradient entries for pt2 into the same row
-            triplets.Add(new Triplet { row = start, column = 2 * j2, value = -grad1.x });
-            triplets.Add(new Triplet { row = start, column = 2 * j2 + 1, value = -grad1.y });
+            triplets.Add(new Triplet { row = start, column = 3 * j2,     value = -grad1.x });
+            triplets.Add(new Triplet { row = start, column = 3 * j2 + 1, value = -grad1.y });
+            triplets.Add(new Triplet { row = start, column = 3 * j2 + 2, value = -grad1.z });
         }
     }
 
@@ -264,14 +266,15 @@ public class BarycenterConstraint : Constraint
         for (int i = 0; i < numVerts; i++)
         {
             float wt = curve.verts[i].AvgLength() / totalLength;
-            triplets.Add(new Triplet { row = rowStart + 0, column = 2 * i, value = wt });
-            triplets.Add(new Triplet { row = rowStart + 1, column = 2 * i + 1, value = wt });
+            triplets.Add(new Triplet { row = rowStart + 0, column = 3 * i,     value = wt });
+            triplets.Add(new Triplet { row = rowStart + 1, column = 3 * i + 1, value = wt });
+            triplets.Add(new Triplet { row = rowStart + 2, column = 3 * i + 2, value = wt });
         }
     }
 
     public override void NegativeViolation(Vector<float> b, Vector<float> targets, int rowStart)
     {
-        Vector2 barycenter = curve.Barycenter();
+        Vector3 barycenter = curve.Barycenter();
 
         // Fill in difference from barycenter to target points
         b[rowStart + 0] = targets[rowStart + 0] - barycenter.x;
@@ -280,7 +283,7 @@ public class BarycenterConstraint : Constraint
 
     public override void SetTargets(Vector<float> targets, int rowStart)
     {
-        Vector2 barycenter = curve.Barycenter();
+        Vector3 barycenter = curve.Barycenter();
 
         // Set the two barycenter target entries to 0
         targets[rowStart + 0] = barycenter.x;

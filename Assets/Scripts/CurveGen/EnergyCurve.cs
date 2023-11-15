@@ -44,7 +44,7 @@ public class EnergyCurve : Curve
     bool noRepulsionAfterScaling;
 
     // For Reproducability (Reset)
-    List<Vector2> origPosList;
+    List<Vector3> origPosList;
     readonly float innerObstacleRadius = 1;
 
     #region Serialization
@@ -68,15 +68,15 @@ public class EnergyCurve : Curve
 
         #region Curve
 
-        List<Vector2> posList = new();
+        List<Vector3> posList = new();
 
         if (config.genModeConfig is GenModeConfig_Bezier bezierConfig)
         {
-            List<Vector2> splinePoints = new();
+            List<Vector3> splinePoints = new();
             for (int i = 0; i < bezierConfig.numPoints; i++)
             {
                 float alpha = Random.Range(-Mathf.PI, Mathf.PI);
-                splinePoints.Add(bezierConfig.radius * Random.value * new Vector2(Mathf.Cos(alpha), Mathf.Sin(alpha)));
+                splinePoints.Add(bezierConfig.radius * Random.value * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
             }
 
             //points = FPDS.Sampling(Vector2.one * -radius, Vector2.one * radius, radius / 10, numPoints);
@@ -94,7 +94,7 @@ public class EnergyCurve : Curve
             for (int i = 0; i < circularConfig.numPoints; i++)
             {
                 float alpha = (i / (float)circularConfig.numPoints) * Mathf.PI * 2f;
-                posList.Add(circularConfig.radius * new Vector2(Mathf.Cos(alpha), Mathf.Sin(alpha)));
+                posList.Add(circularConfig.radius * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
             }
             //points.ForEach(x => Debug.Log(x));
         }
@@ -130,7 +130,7 @@ public class EnergyCurve : Curve
                 float innerRadius = circularConfig.radius;
                 float outerRadius = innerRadius * 4;
 
-                s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 1, numPoints = (int)outerRadius * 3, radius = outerRadius, center = Vector2.zero });
+                s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 1, numPoints = (int)outerRadius * 3, radius = outerRadius, center = Vector3.zero });
 
                 int numInnerObstacles = config.numObstacles; // - 1;
 
@@ -138,7 +138,7 @@ public class EnergyCurve : Curve
                 {
                     float angle = i * 2 * Mathf.PI / numInnerObstacles;
                     float radius = Random.Range(innerRadius + innerObstacleRadius + 1, outerRadius);
-                    Vector2 pos = new(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
+                    Vector3 pos = new(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
 
                     s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 0.25f, numPoints = 10, radius = innerObstacleRadius, center = pos });
                 }
@@ -239,7 +239,7 @@ public class EnergyCurve : Curve
     public Tuple<bool, bool> ComputeLineSearchStep_Normal(bool useBarnesHut, bool useBackproj)
     {
         int numVerts = NumVerts();
-        Matrix<float> gradients = Matrix<float>.Build.Dense(numVerts, 2);
+        Matrix<float> gradients = Matrix<float>.Build.Dense(numVerts, 3);
 
         // If applicable (if genMode == Grow), move constraint targets
         //SetStartTime();
@@ -248,7 +248,7 @@ public class EnergyCurve : Curve
 
         #region Gradient Assembling
         // Assemble gradients, either exaclty or with Barnes-Hut.
-        BVHNode2D treeRoot = null;
+        BVHNode3D treeRoot = null;
         if (useBarnesHut)
         {
             //SetStartTime();
@@ -269,12 +269,13 @@ public class EnergyCurve : Curve
             Matrix<float> A = Matrix<float>.Build.Dense(numRows, numRows);
 
             // Assemble constraint saddle matrix with identity in the upper-left corner
-            Matrix<float> mass = Matrix<float>.Build.DenseIdentity(numVerts * 2, numVerts * 2);
+            Matrix<float> mass = Matrix<float>.Build.DenseIdentity(numVerts * 3, numVerts * 3);
             for (int i = 0; i < numVerts; i++)
             {
                 float m = 1.0f / verts[i].AvgLength();
-                mass[2 * i, 2 * i] = m;
-                mass[2 * i + 1, 2 * i + 1] = m;
+                mass[3 * i, 3 * i] = m;
+                mass[3 * i + 1, 3 * i + 1] = m;
+                mass[3 * i + 2, 3 * i + 2] = m;
             }
 
             A.SetSubMatrix(0, 0, mass);
@@ -318,7 +319,7 @@ public class EnergyCurve : Curve
         SetStartTime();
 
         int numVerts = NumVerts();
-        Matrix<float> vertGradients = Matrix<float>.Build.Dense(numVerts, 2);
+        Matrix<float> vertGradients = Matrix<float>.Build.Dense(numVerts, 3);
 
         //SetStartTime();
 
@@ -345,7 +346,7 @@ public class EnergyCurve : Curve
         #region Gradient Assembling
         // Assemble gradients, either exaclty or with Barnes-Hut.
         SetStartTime();
-        BVHNode2D treeRoot = null;
+        BVHNode3D treeRoot = null;
         if (useBarnesHut)
         {
             treeRoot = TPEBVH.GetInstance.CreateBVHFromCurve(this);
@@ -385,7 +386,7 @@ public class EnergyCurve : Curve
         #endregion
 
         if (UsingConstraint(ConstraintType.Length) && stepSize < lsStepThreshold)
-            vertGradients = Matrix<float>.Build.Dense(numVerts, 2);
+            vertGradients = Matrix<float>.Build.Dense(numVerts, 3);
 
         #region Drift Correction with Backprojection
         if (useBackproj)
@@ -412,7 +413,7 @@ public class EnergyCurve : Curve
     /// Add all gradients together: From Vectors, Obstacles and Potentials.
     /// Note that the gradients always point in the direction of MORE Energy.
     /// </summary>
-    void AddAllGradients(BVHNode2D treeRoot, Matrix<float> vertGradients)
+    void AddAllGradients(BVHNode3D treeRoot, Matrix<float> vertGradients)
     {
         if (Repulsion)
         {
@@ -455,7 +456,7 @@ public class EnergyCurve : Curve
     /// A line search algorithm. Moves all vertex positions in the direction of their gradient until the Armijo condition is satisfied.
     /// Afterwards, if the total step size is too small, the original positions are restored.
     /// </summary>
-    float LineSearchStep(Matrix<float> gradient, float gradDot, BVHNode2D treeRoot, bool resetStep = false)
+    float LineSearchStep(Matrix<float> gradient, float gradDot, BVHNode3D treeRoot, bool resetStep = false)
     {
         float gradNorm = (float)gradient.FrobeniusNorm();
         float initGuess = (gradNorm > 1) ? 1.0f / gradNorm : 1.0f / Mathf.Sqrt(gradNorm);
@@ -538,7 +539,7 @@ public class EnergyCurve : Curve
 
         for (int i = 0; i < gradients.RowCount; i++)
         {
-            soboDot += Vector2.Dot(CurveGenUtils.SelectRow(l2gradients, i), CurveGenUtils.SelectRow(gradients, i));
+            soboDot += Vector3.Dot(CurveGenUtils.SelectRow(l2gradients, i), CurveGenUtils.SelectRow(gradients, i));
         }
 
         return soboDot;
@@ -556,8 +557,9 @@ public class EnergyCurve : Curve
         // Fill in RHS (right hand side) with all coordinates
         for (int i = 0; i < numVerts; i++)
         {
-            sps3[2 * i] = gradients[i, 0];
-            sps3[2 * i + 1] = gradients[i, 1];
+            sps3[3 * i] = gradients[i, 0];
+            sps3[3 * i + 1] = gradients[i, 1];
+            sps3[3 * i + 2] = gradients[i, 2];
         }
 
         // Solve for all coordinates
@@ -565,7 +567,7 @@ public class EnergyCurve : Curve
 
         for (int i = 0; i < numVerts; i++)
         {
-            CurveGenUtils.SetRow(gradients, i, new Vector2(sps2[2 * i], sps2[2 * i + 1]));
+            CurveGenUtils.SetRow(gradients, i, new Vector3(sps2[3 * i], sps2[3 * i + 1], sps2[3 * i + 2]));
         }
 
         return 1;
@@ -595,7 +597,7 @@ public class EnergyCurve : Curve
     /// <summary>
     /// Returns the current energy of the whole curve
     /// </summary>
-    public float CurrentEnergy(BVHNode2D treeRoot)
+    public float CurrentEnergy(BVHNode3D treeRoot)
     {
         float energy = 0;
 
@@ -620,7 +622,7 @@ public class EnergyCurve : Curve
         return energy;
     }
 
-    private float EnergyBH(BVHNode2D treeRoot)
+    private float EnergyBH(BVHNode3D treeRoot)
     {
         return treeRoot.TotalEnergy(this, treeRoot);
     }
@@ -629,7 +631,7 @@ public class EnergyCurve : Curve
 
     #region Constraints and Backprojection
 
-    private float LSBackproject(Matrix<float> gradients, float initGuess, LU<float> lu, BVHNode2D root)
+    private float LSBackproject(Matrix<float> gradients, float initGuess, LU<float> lu, BVHNode3D root)
     {
         float delta = initGuess;
         int attempts = 0;
@@ -669,7 +671,7 @@ public class EnergyCurve : Curve
         // If using per-edge length constraints, matrix has all coordinates merged, so we only need one solve
 
         // Fill RHS with negative constraint values
-        float maxViolation = constraintSet.FillConstraintValues(b, constraintTargets, 2 * numVerts);
+        float maxViolation = constraintSet.FillConstraintValues(b, constraintTargets, 3 * numVerts);
 
         // Solve for correction
         Vector<float> corr = lu.Solve(b);
@@ -677,7 +679,7 @@ public class EnergyCurve : Curve
         // Apply correction
         for (int i = 0; i < numVerts; i++)
         {
-            Vector2 correction = new Vector2(corr[2 * i], corr[2 * i + 1]);
+            Vector3 correction = new(corr[3 * i], corr[3 * i + 1], corr[3 * i + 2]);
             CurveVertex pt = verts[i];
             pt.SetPosition(pt.Position() + correction);
             //if (i == 0)
@@ -685,7 +687,7 @@ public class EnergyCurve : Curve
         }
 
         // Compute constraint violation after correction
-        maxViolation = constraintSet.FillConstraintValues(b, constraintTargets, 2 * numVerts);
+        maxViolation = constraintSet.FillConstraintValues(b, constraintTargets, 3 * numVerts);
         //Debug.Log("Constraint value: " + maxViolation);
 
         return maxViolation;
@@ -743,9 +745,9 @@ public class EnergyCurve : Curve
         return constraintSet.ConstraintTypes.Contains(type);
     }
 
-    internal Vector2 Barycenter()
+    internal Vector3 Barycenter()
     {
-        Vector2 center = Vector2.zero;
+        Vector3 center = Vector3.zero;
         float totalMass = 0;
         int numVerts = NumVerts();
 
@@ -772,7 +774,7 @@ public class EnergyCurve : Curve
 
         int numEdges = NumEdges();
 
-        List<Vector2> newPositions = new List<Vector2>();
+        List<Vector3> newPositions = new();
 
         for (int i = 0; i < numEdges; i++)
         {
@@ -783,7 +785,7 @@ public class EnergyCurve : Curve
 
             if (i == 0) newPositions.Add(prev.Position());
 
-            Vector2 midpoint = (prev.Position() + next.Position()) * 0.5f;
+            Vector3 midpoint = (prev.Position() + next.Position()) * 0.5f;
             newPositions.Add(midpoint);
 
             if (i < numEdges - 1 || !curveClosed) // If open, always add the last vertex. If closed, only add if it isn't the same as the start vertex.
@@ -802,7 +804,7 @@ public class EnergyCurve : Curve
     }
 
     /// <summary>
-    /// Does everything that should be done after sclaing. Returns true iff the repulsion should stop afterwards.
+    /// Does everything that should be done after scaling. Returns true iff the repulsion should stop afterwards.
     /// </summary>
     /// <returns></returns>
     bool AfterScaling()
@@ -818,6 +820,9 @@ public class EnergyCurve : Curve
 
         if (rotateAfterScaling)
         {
+            Debug.LogError("Error: AfterScaling() not yet converted to Vector3");
+
+            /*
             Debug.Log(positions);
 
             float getAvgAngle()
@@ -858,12 +863,13 @@ public class EnergyCurve : Curve
             Debug.Log(getAvgAngle());
 
             return true;
+            */
         }
 
         return false;
     }
 
-    public List<Vector2> Polyline => verts.Select(x => x.Position()).ToList();
+    public List<Vector3> Polyline => verts.Select(vert => vert.Position()).ToList();
 
     #region Serialization
 
@@ -955,9 +961,9 @@ public class ObstacleConfig
 {
     public float weight, radius;
     public int numPoints;
-    public Vector2 center;
+    public Vector3 center;
 
-    public ObstacleConfig(float weight, float radius, int numPoints, Vector2 center)
+    public ObstacleConfig(float weight, float radius, int numPoints, Vector3 center)
     {
         this.weight = weight;
         this.radius = radius;
@@ -1009,5 +1015,5 @@ struct S_ObstacleConfig
     public float weight;
     public int numPoints;
     public float radius;
-    public Vector2 center;
+    public Vector3 center;
 }

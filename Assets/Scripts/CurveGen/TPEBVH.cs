@@ -8,29 +8,29 @@ public class TPEBVH
     static TPEBVH instance;
     public static TPEBVH GetInstance { get { if (instance == null) instance = new TPEBVH(); return instance; } }
 
-    public BVHNode2D CreateBVHFromCurve(EnergyCurve curve)
+    public BVHNode3D CreateBVHFromCurve(EnergyCurve curve)
     {
         int numVerts = curve.NumVerts();
-        List<VertexBody4D> verts = new List<VertexBody4D>(new VertexBody4D[numVerts]);
+        List<VertexBody6D> verts = new List<VertexBody6D>(new VertexBody6D[numVerts]);
 
         // Loop over all the vertices
         for (int i = 0; i < numVerts; i++)
         {
-            VertexBody4D currBody = VertToBody(curve, i);
+            VertexBody6D currBody = VertToBody(curve, i);
             verts[currBody.elementIndex] = currBody;
         }
 
-        BVHNode2D tree = new BVHNode2D(verts, 3, null, true);
+        BVHNode3D tree = new BVHNode3D(verts, 3, null, true);
         tree.RecomputeCentersOfMass(curve);
-        BVHNode2D.globalID = 0;
+        BVHNode3D.globalID = 0;
         tree.RecursivelyAssignIDs();
 
-        tree.numNodes = BVHNode2D.globalID;
+        tree.numNodes = BVHNode3D.globalID;
 
         return tree;
     }
 
-    private VertexBody4D VertToBody(EnergyCurve curve, int i)
+    private VertexBody6D VertToBody(EnergyCurve curve, int i)
     {
         CurveVertex p = curve.verts[i];
         Vector2 pos = p.Position();
@@ -40,6 +40,6 @@ public class TPEBVH
         float mass = p.AvgLength();
         int globalIndex = p.GlobalIndex();
 
-        return new VertexBody4D(ptan, mass, globalIndex, BodyType.Vertex);
+        return new VertexBody6D(ptan, mass, globalIndex, BodyType.Vertex);
     }
 }

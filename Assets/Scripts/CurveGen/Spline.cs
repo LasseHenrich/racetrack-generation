@@ -6,14 +6,14 @@ using UnityEngine;
 
 public class Spline
 {
-    public ObservableList<Vector2> controls;
+    public ObservableList<Vector3> controls;
     protected bool isClosed;
     bool autoSetControlPoints;
     List<float> _segmentLengths;
 
     public bool IsClosed { get { return isClosed; } }
 
-    public List<Vector2[]> pointsInSegment; // Apparently, we call GetPointsInSegment() a LOT of times, so the garbage collector struggled a bit. To not let the garbage be collected, we created this variable here.
+    public List<Vector3[]> pointsInSegment; // Apparently, we call GetPointsInSegment() a LOT of times, so the garbage collector struggled a bit. To not let the garbage be collected, we created this variable here.
 
     public float GetSegmentLength(int segIndex)
     {
@@ -23,19 +23,19 @@ public class Spline
     }
 
 
-    public Spline(Vector2 centre)
+    public Spline(Vector3 centre)
     {
         controls = new(this);
-        controls.AddRange(new List<Vector2>()
+        controls.AddRange(new List<Vector3>()
         {
-            centre + Vector2.left * 10,
-            centre + (Vector2.left + Vector2.up) * 5f,
-            centre + (Vector2.right + Vector2.down) * 5f,
-            centre + Vector2.right * 10
+            centre + Vector3.left * 10,
+            centre + (Vector3.left + Vector3.up) * 5f,
+            centre + (Vector3.right + Vector3.down) * 5f,
+            centre + Vector3.right * 10
         });
     }
 
-    public Spline(List<Vector2> newCtrls, bool controlPointsIncluded = false, bool alreadyClosed = false)
+    public Spline(List<Vector3> newCtrls, bool controlPointsIncluded = false, bool alreadyClosed = false)
     {
         if (!controlPointsIncluded)
         {
@@ -43,10 +43,10 @@ public class Spline
             for (int i = 0; i < newCtrls.Count; i++)
             {
                 if (i > 0)
-                    this.controls.Add(newCtrls[i] - Vector2.one);
+                    this.controls.Add(newCtrls[i] - Vector3.one);
                 this.controls.Add(newCtrls[i]);
                 if (i < newCtrls.Count - 1)
-                    this.controls.Add(newCtrls[i] + Vector2.one);
+                    this.controls.Add(newCtrls[i] + Vector3.one);
             }
         }
         else
@@ -80,7 +80,7 @@ public class Spline
         }
     }
 
-    public Vector2 this[int i]
+    public Vector3 this[int i]
     {
         get
         {
@@ -109,7 +109,7 @@ public class Spline
         return control / 3;
     }
 
-    public void AddSegment(Vector2 anchorPos)
+    public void AddSegment(Vector3 anchorPos)
     {
         controls.Add(controls[controls.Count - 1] * 2 - controls[controls.Count - 2]);
         controls.Add((controls[controls.Count - 1] + anchorPos) * .5f);
@@ -121,9 +121,9 @@ public class Spline
         }
     }
 
-    public virtual void SplitSegment(Vector2 anchorPos, int segmentIndex)
+    public virtual void SplitSegment(Vector3 anchorPos, int segmentIndex)
     {
-        controls.InsertRange(segmentIndex * 3 + 2, new Vector2[] { Vector2.zero, anchorPos, Vector2.zero });
+        controls.InsertRange(segmentIndex * 3 + 2, new Vector3[] { Vector3.zero, anchorPos, Vector3.zero });
         if (autoSetControlPoints)
         {
             AutoSetAllAffectedControlPoints(segmentIndex * 3 + 3);
@@ -163,18 +163,18 @@ public class Spline
         pointsInSegment = new();
         for (int i = 0; i < NumSegments; i++)
         {
-            pointsInSegment.Add(new Vector2[] { controls[i * 3], controls[i * 3 + 1], controls[i * 3 + 2], controls[LoopIndex(i * 3 + 3)] });
+            pointsInSegment.Add(new Vector3[] { controls[i * 3], controls[i * 3 + 1], controls[i * 3 + 2], controls[LoopIndex(i * 3 + 3)] });
         }
     }
 
-    public Vector2[] GetPointsInSegment(int segIndex)
+    public Vector3[] GetPointsInSegment(int segIndex)
     {
         return pointsInSegment[segIndex];
     }
 
-    public void MovePoint(int i, Vector2 pos)
+    public void MovePoint(int i, Vector3 pos)
     {
-        Vector2 deltaMove = pos - controls[i];
+        Vector3 deltaMove = pos - controls[i];
         controls[i] = pos;
 
         if (i % 3 == 0)
@@ -197,7 +197,7 @@ public class Spline
             if (correspondingControlIndex >= 0 && correspondingControlIndex < controls.Count || isClosed)
             {
                 float dst = (controls[LoopIndex(anchorIndex)] - controls[LoopIndex(correspondingControlIndex)]).magnitude;
-                Vector2 dir = (controls[LoopIndex(anchorIndex)] - pos).normalized;
+                Vector3 dir = (controls[LoopIndex(anchorIndex)] - pos).normalized;
                 controls[LoopIndex(correspondingControlIndex)] = controls[LoopIndex(anchorIndex)] + dir * dst;
             }
         }
@@ -224,21 +224,21 @@ public class Spline
 
     void AutoSetAnchorControlPoints(int anchorIndex)
     {
-        Vector2 anchorPos = controls[anchorIndex];
+        Vector3 anchorPos = controls[anchorIndex];
         //Debug.Log(anchorIndex);
-        Vector2 dir = Vector2.zero;
+        Vector3 dir = Vector3.zero;
         float[] neighbourDistances = new float[2];
 
         if (anchorIndex - 3 >= 0 || isClosed)
         {
-            Vector2 offset = controls[LoopIndex(anchorIndex - 3)] - anchorPos;
+            Vector3 offset = controls[LoopIndex(anchorIndex - 3)] - anchorPos;
             dir += offset.normalized;
             neighbourDistances[0] = offset.magnitude;
             //Debug.Log(offset);
         }
         if (anchorIndex + 3 >= 0 || isClosed)
         {
-            Vector2 offset = controls[LoopIndex(anchorIndex + 3)] - anchorPos;
+            Vector3 offset = controls[LoopIndex(anchorIndex + 3)] - anchorPos;
             dir -= offset.normalized;
             neighbourDistances[1] = -offset.magnitude;
             //Debug.Log(offset);
@@ -294,12 +294,12 @@ public class Spline
     /// </summary>
     /// <param name="spacing"></param>
     /// <param name="resolution"></param>
-    public List<Vector2> CalculateEvenlySpacedPoints(float spacing, float resolution = 1)
+    public List<Vector3> CalculateEvenlySpacedPoints(float spacing, float resolution = 1)
     {
         return CalculateEvenlySpacedPoints(spacing, out _, resolution);
     }
 
-    public List<Vector2> CalculateEvenlySpacedPoints(float spacing, out List<int> indicesOfSegments, float resolution = 1)
+    public List<Vector3> CalculateEvenlySpacedPoints(float spacing, out List<int> indicesOfSegments, float resolution = 1)
     {
         return CalculateEvenlySpacedPoints(spacing, out indicesOfSegments, out _, resolution);
     }
@@ -310,7 +310,7 @@ public class Spline
     /// <param name="spacing"></param>
     /// <param name="indicesOfSegments">Points to the index of the first point in the segment</param>
     /// <param name="resolution"></param>
-    public List<Vector2> CalculateEvenlySpacedPoints(float spacing, out List<int> indicesOfSegments, out List<float> ts, float resolution = 1)
+    public List<Vector3> CalculateEvenlySpacedPoints(float spacing, out List<int> indicesOfSegments, out List<float> ts, float resolution = 1)
     {
         float totalLength = 0;
         for (int segmentIndex = 0; segmentIndex < NumSegments; segmentIndex++)
@@ -318,8 +318,8 @@ public class Spline
         int pointCount = (int)(totalLength / spacing);
         spacing = totalLength / pointCount;
 
-        List<Vector2> evenlySpacedPoints = new List<Vector2>();
-        Vector2 previousPoint = controls[0];
+        List<Vector3> evenlySpacedPoints = new();
+        Vector3 previousPoint = controls[0];
         float dstSinceLastEvenPoint = 0; // distance since last evenly spaced point
 
         indicesOfSegments = new();
@@ -329,19 +329,19 @@ public class Spline
         {
             indicesOfSegments.Add(evenlySpacedPoints.Count);
 
-            Vector2[] p = GetPointsInSegment(segmentIndex);
+            Vector3[] p = GetPointsInSegment(segmentIndex);
             float estimatedSegLength = GetSegmentLength(segmentIndex);
             int divisions = Mathf.CeilToInt(estimatedSegLength * resolution * 10);
             float t = 0f;
             while (t <= 1f)
             {
-                Vector2 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
-                dstSinceLastEvenPoint += Vector2.Distance(previousPoint, pointOnCurve);
+                Vector3 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
+                dstSinceLastEvenPoint += Vector3.Distance(previousPoint, pointOnCurve);
 
                 while (dstSinceLastEvenPoint >= spacing)
                 {
                     float overshootDst = dstSinceLastEvenPoint - spacing;
-                    Vector2 newEvenlySpacedPoint = pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
+                    Vector3 newEvenlySpacedPoint = pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
                     evenlySpacedPoints.Add(newEvenlySpacedPoint);
                     dstSinceLastEvenPoint = overshootDst;
                     previousPoint = newEvenlySpacedPoint;
@@ -361,8 +361,8 @@ public class Spline
             for (int i = 1; i < evenlySpacedPoints.Count; i++)
             {
                 int nextPoint = (i + 1) % evenlySpacedPoints.Count;
-                Vector2 direction = (evenlySpacedPoints[nextPoint] - evenlySpacedPoints[i]).normalized;
-                Vector2 move = direction * maxMove * ((float)i / (evenlySpacedPoints.Count - 1));
+                Vector3 direction = (evenlySpacedPoints[nextPoint] - evenlySpacedPoints[i]).normalized;
+                Vector3 move = direction * maxMove * ((float)i / (evenlySpacedPoints.Count - 1));
                 evenlySpacedPoints[i] += move;
             }
         }
@@ -378,17 +378,17 @@ public class Spline
     /// <param name="previousPoint"></param>
     /// <param name="resolution"></param>
     /// <returns></returns>
-    public List<Vector2> CalculateEvenlySpacedPointsInSegment(int segIndex, float spacing, out List<float> ts, float resolution = 1)
+    public List<Vector3> CalculateEvenlySpacedPointsInSegment(int segIndex, float spacing, out List<float> ts, float resolution = 1)
     {
-        Vector2[] p = GetPointsInSegment(segIndex);
+        Vector3[] p = GetPointsInSegment(segIndex);
 
-        Vector2 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
+        Vector3 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
 
         float estimatedSegLength = GetSegmentLength(segIndex);
         int divisions = Mathf.CeilToInt(estimatedSegLength * resolution * 10);
         float dstSinceLastEvenPoint = 0; // distance since last evenly spaced point
 
-        List<Vector2> evenlySpacedPoints = new();
+        List<Vector3> evenlySpacedPoints = new();
         ts = new();
 
         float t = 0f;
@@ -396,13 +396,13 @@ public class Spline
         while (t <= 1f)
         {
             t += 1f / divisions;
-            Vector2 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
-            dstSinceLastEvenPoint += Vector2.Distance(previousPoint, pointOnCurve);
+            Vector3 pointOnCurve = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
+            dstSinceLastEvenPoint += Vector3.Distance(previousPoint, pointOnCurve);
 
             while (dstSinceLastEvenPoint >= spacing)
             {
                 float overshootDst = dstSinceLastEvenPoint - spacing;
-                Vector2 newEvenlySpacedPoint = pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
+                Vector3 newEvenlySpacedPoint = pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
                 evenlySpacedPoints.Add(newEvenlySpacedPoint);
                 dstSinceLastEvenPoint = overshootDst;
                 previousPoint = newEvenlySpacedPoint;
@@ -435,9 +435,9 @@ public class Spline
 
         int divisions = 50;
 
-        Vector2[] p = GetPointsInSegment(segIndex);
+        Vector3[] p = GetPointsInSegment(segIndex);
 
-        Vector2 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
+        Vector3 previousPoint = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], 0);
 
         float length = 0;
 
@@ -445,7 +445,7 @@ public class Spline
         {
             float t = (i + 1) / (float)divisions;
             var point = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
-            length += Vector2.Distance(point, previousPoint);
+            length += Vector3.Distance(point, previousPoint);
             previousPoint = point;
         }
 
@@ -470,12 +470,12 @@ public class Spline
         }
     }
 
-    public Vector2[] CalculateForwards(int index, Vector2[] points, float[] t)
+    public Vector3[] CalculateForwards(int index, Vector3[] points, float[] t)
     {
-        Vector2[] forwards = new Vector2[t.Length];
-        Vector2[] pThis = GetPointsInSegment(index);
-        Vector2[] pLast;
-        Vector2[] pNext;
+        Vector3[] forwards = new Vector3[t.Length];
+        Vector3[] pThis = GetPointsInSegment(index);
+        Vector3[] pLast;
+        Vector3[] pNext;
         float gap = 0.0001f;
 
         float thisSegmentLength;
@@ -493,36 +493,30 @@ public class Spline
         {
             // With a previous point
             if (t[i] - gap < 0) // Last curve
-                forwards[i] += points[i] - xy0ToXY(Bezier.EvaluateCubic(pLast[0], pLast[1], pLast[2], pLast[3], ((t[i] - gap) * (thisSegmentLength / lastSegmentLength)) + 1)); // t[i] is relative: has to be recalculated to fit last segment
+                forwards[i] += points[i] - Bezier.EvaluateCubic(pLast[0], pLast[1], pLast[2], pLast[3], ((t[i] - gap) * (thisSegmentLength / lastSegmentLength)) + 1); // t[i] is relative: has to be recalculated to fit last segment
             else if (t[i] - gap <= 1) // This curve
-                forwards[i] += points[i] - xy0ToXY(Bezier.EvaluateCubic(pThis[0], pThis[1], pThis[2], pThis[3], t[i] - gap));
+                forwards[i] += points[i] - Bezier.EvaluateCubic(pThis[0], pThis[1], pThis[2], pThis[3], t[i] - gap);
             else // Next curve
-                forwards[i] += points[i] - xy0ToXY(Bezier.EvaluateCubic(pNext[0], pNext[1], pNext[2], pNext[3], (((t[i] - 1) - gap) * (thisSegmentLength / nextSegmentLength))));
+                forwards[i] += points[i] - Bezier.EvaluateCubic(pNext[0], pNext[1], pNext[2], pNext[3], (((t[i] - 1) - gap) * (thisSegmentLength / nextSegmentLength)));
 
             // With a next point
             if (t[i] + gap > 1) // Next curve
-                forwards[i] += xy0ToXY(Bezier.EvaluateCubic(pNext[0], pNext[1], pNext[2], pNext[3], (((t[i] - 1) + gap) * (thisSegmentLength / nextSegmentLength)))) - points[i];
+                forwards[i] += Bezier.EvaluateCubic(pNext[0], pNext[1], pNext[2], pNext[3], (((t[i] - 1) + gap) * (thisSegmentLength / nextSegmentLength))) - points[i];
             else if (t[i] + gap >= 0) // This curve
-                forwards[i] += xy0ToXY(Bezier.EvaluateCubic(pThis[0], pThis[1], pThis[2], pThis[3], t[i] + gap)) - points[i];
+                forwards[i] += Bezier.EvaluateCubic(pThis[0], pThis[1], pThis[2], pThis[3], t[i] + gap) - points[i];
             else // Last curve
-                forwards[i] += xy0ToXY(Bezier.EvaluateCubic(pLast[0], pLast[1], pLast[2], pLast[3], ((t[i] + gap) * (thisSegmentLength / lastSegmentLength)) + 1)) - points[i];
+                forwards[i] += Bezier.EvaluateCubic(pLast[0], pLast[1], pLast[2], pLast[3], ((t[i] + gap) * (thisSegmentLength / lastSegmentLength)) + 1) - points[i];
 
             forwards[i].Normalize();
-        }
-
-        Vector2 xy0ToXY(Vector3 xy0)
-        {
-            return new Vector2(xy0.x, xy0.y);
         }
 
         return forwards;
     }
 
-    public Vector2 CalculatePointAtT(int segIndex, float t)
+    public Vector3 CalculatePointAtT(int segIndex, float t)
     {
-        Vector2[] p = GetPointsInSegment(segIndex);
-        var p3D = Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
-        return new(p3D.x, p3D.y);
+        Vector3[] p = GetPointsInSegment(segIndex);
+        return Bezier.EvaluateCubic(p[0], p[1], p[2], p[3], t);
     }
 
     //public float closestTonSegment(int segIndex, Vector2 point)
@@ -562,13 +556,13 @@ public class Spline
 
     #region Bounding Box
 
-    public (Vector2, Vector2) BoundingBox(int segmentIndex)
+    public (Vector3, Vector3) BoundingBox(int segmentIndex)
     {
-        List<Vector2> points = GetPointsInSegment(segmentIndex).ToList();
+        List<Vector3> points = GetPointsInSegment(segmentIndex).ToList();
         return BoundingBox(points);
     }
 
-    public (Vector2, Vector2) BoundingBox(List<Vector2> ps)
+    public (Vector3, Vector3) BoundingBox(List<Vector3> ps)
     {
         var p0 = ps[0]; var p1 = ps[1]; var p2 = ps[2]; var p3 = ps[3];
 
@@ -581,24 +575,26 @@ public class Spline
         }
         roots.AddRange(new List<float>() { 0, 1 });
 
-        List<Vector2> values = roots.Select(t => Bezier.EvaluateCubic(p0, p1, p2, p3, t)).Select(x => new Vector2(x.x, x.y)).ToList();
+        List<Vector3> values = roots.Select(t => Bezier.EvaluateCubic(p0, p1, p2, p3, t)).ToList();
 
         float lowestX = values.Min(v => v.x);
         float lowestY = values.Min(v => v.y);
+        float lowestZ = values.Min(v => v.z);
         float highestX = values.Max(v => v.x);
         float highestY = values.Max(v => v.y);
+        float highestZ = values.Max(v => v.z);
 
-        return (new(lowestX, lowestY), new(highestX, highestY));
+        return (new(lowestX, lowestY, lowestZ), new(highestX, highestY, highestZ));
     }
 
     // See https://snoozetime.github.io/2018/05/22/bezier-curve-bounding-box.html
-    private static List<float> FindRoots(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3)
+    private static List<float> FindRoots(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
     {
-        Vector2 a = 3 * (-p0 + 3 * p1 - 3 * p2 + p3);
-        Vector2 b = 6 * (p0 - 2 * p1 + p2);
-        Vector2 c = 3 * (p1 - p0);
+        Vector3 a = 3 * (-p0 + 3 * p1 - 3 * p2 + p3);
+        Vector3 b = 6 * (p0 - 2 * p1 + p2);
+        Vector3 c = 3 * (p1 - p0);
 
-        List<float> roots = new List<float>();
+        List<float> roots = new();
 
         // along x
         float discriminantX = b.x * b.x - 4 * a.x * c.x;

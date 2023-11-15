@@ -29,7 +29,7 @@ public class TPE
         }
     }
 
-    public void FillGradientVectorBH(EnergyCurve curve, BVHNode2D treeRoot, Matrix<float> output)
+    public void FillGradientVectorBH(EnergyCurve curve, BVHNode3D treeRoot, Matrix<float> output)
     {
         // The single energy term (i, j) affects six vertices:
         // (i_prev, i, i_next, j_prev, j, j_next)

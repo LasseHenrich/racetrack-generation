@@ -6,8 +6,9 @@ using UnityEngine;
 
 public class VertJacobian
 {
-    public Vector2 directional_x;
-    public Vector2 directional_y;
+    public Vector3 directional_x;
+    public Vector3 directional_y;
+    public Vector3 directional_z;
 
     /// <summary>
     /// Interpret v as a row vector multiplied on the left.
@@ -15,17 +16,18 @@ public class VertJacobian
     /// </summary>
     /// <param name="v"></param>
     /// <returns></returns>
-    public Vector2 LeftMultiply(Vector2 v)
+    public Vector3 LeftMultiply(Vector3 v)
     {
-        float x = Vector2.Dot(v, directional_x);
-        float y = Vector2.Dot(v, directional_y);
-        return new Vector2(x, y);
+        float x = Vector3.Dot(v, directional_x);
+        float y = Vector3.Dot(v, directional_y);
+        float z = Vector3.Dot(v, directional_z);
+        return new Vector3(x, y, z);
     }
 
     public static VertJacobian operator +(VertJacobian a, VertJacobian b)
     {
-        Vector2 dir_x = a.directional_x + b.directional_x;
-        Vector2 dir_y = a.directional_y + b.directional_y;
+        Vector3 dir_x = a.directional_x + b.directional_x;
+        Vector3 dir_y = a.directional_y + b.directional_y;
         return new VertJacobian { directional_x = dir_x, directional_y = dir_y };
     }
 
@@ -49,10 +51,10 @@ public class VertJacobian
         return a * (1 / c);
     }
 
-    public static VertJacobian OuterProductToJacobian(Vector2 v1, Vector2 v2)
+    public static VertJacobian OuterProductToJacobian(Vector3 v1, Vector3 v2)
     {
-        Vector2 col1 = v1 * v2.x;
-        Vector2 col2 = v1 * v2.y;
+        Vector3 col1 = v1 * v2.x;
+        Vector3 col2 = v1 * v2.y;
         return new VertJacobian { directional_x = col1, directional_y = col2 };
     }
 
