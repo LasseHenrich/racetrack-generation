@@ -200,7 +200,7 @@ public class ControlWindow : ToolWindow
                 #region Polyline
                 CreateSubSubSection("Polyline", () =>
                 {
-                    Debug.LogWarning("GenMode Dropdown tbd");
+                    //Debug.LogWarning("GenMode Dropdown tbd");
                     //genMode = (GenMode)EditorGUILayout.EnumPopup("Gen Mode", genMode);
                     CreateCheckbox("Closed Curve", ref curveClosed);
 
@@ -325,7 +325,7 @@ public class ControlWindow : ToolWindow
                     CreateCheckbox("Use Barnes Hut", ref useBarnesHut);
                     CreateCheckbox("Use Backprojection", ref useBackproj);
                     //repulsionType = (RepulsionType)EditorGUILayout.EnumPopup("Repulsion Method", repulsionType);
-                    Debug.LogWarning("RepulsionType Dropdown tbd");
+                    //Debug.LogWarning("RepulsionType Dropdown tbd");
 
                     #endregion
 
@@ -361,7 +361,7 @@ public class ControlWindow : ToolWindow
                     _CreateFoldout(name + " Config", ref metc.showFoldout);
                     if (metc.showFoldout)
                     {
-                        Debug.LogWarning("Mesh Dropdown tbd");
+                        //Debug.LogWarning("Mesh Dropdown tbd");
                         //metc.mesh = (Mesh)EditorGUILayout.ObjectField(name + " Mesh", metc.mesh, typeof(Mesh), allowSceneObjects: false);
                         CreateSlider(ref metc.numMaterials, name + " Materials", 0, 5);
                         CreateMaterialSelection(metc.materials, metc.numMaterials);
@@ -373,7 +373,7 @@ public class ControlWindow : ToolWindow
                     for (int i = 0; i < numMats; i++)
                     {
                         if (i >= matList.Count) matList.Add(new(Shader.Find("Specular")));
-                        Debug.LogWarning("Material Dropdown tbd");
+                        //Debug.LogWarning("Material Dropdown tbd");
                         //matList[i] = (Material)EditorGUILayout.ObjectField("Material " + (i + 1), matList[i], typeof(Material), allowSceneObjects: false);
                     }
 

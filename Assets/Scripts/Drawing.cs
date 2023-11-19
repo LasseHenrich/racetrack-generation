@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class Drawing : MonoBehaviour
 {
+    [SerializeField] Transform curveObjectsContainer;
     [SerializeField] Material mat;
 
     #region Colors
@@ -57,8 +58,8 @@ public class Drawing : MonoBehaviour
             GL.Color(polyColor);
             List<Vector3> polyPoints3D = new();
             for (int i = 0; i < PolyPoints.Count; i++)
-                polyPoints3D.Add(MyMath.xzToX0Z(PolyPoints[i].Position()));
-            if (ctrlWindow.curveClosed) polyPoints3D.Add(MyMath.xzToX0Z(PolyPoints[0].Position()));
+                polyPoints3D.Add(PolyPoints[i].Position());
+            if (ctrlWindow.curveClosed) polyPoints3D.Add(PolyPoints[0].Position());
 
             if (ctrlWindow.showPolyLine)
             {
@@ -75,7 +76,7 @@ public class Drawing : MonoBehaviour
                 GL.Begin(GL.TRIANGLES);
                 for (int i = 0; i < PolyPoints.Count; i++)
                 {
-                    DrawGLDisc(MyMath.xzToX0Z(PolyPoints[i].Position()), polylineDiscWidth);
+                    DrawGLDisc(PolyPoints[i].Position(), polylineDiscWidth);
                 }
                 GL.End();
             }

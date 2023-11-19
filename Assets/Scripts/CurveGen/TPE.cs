@@ -98,39 +98,39 @@ public class TPE
     /// <param name="y"></param>
     /// <param name="wrt"></param>
     /// <returns></returns>
-    public Vector2 TpeGrad(CurveVertex x, CurveVertex y, CurveVertex wrt)
+    public Vector3 TpeGrad(CurveVertex x, CurveVertex y, CurveVertex wrt)
     {
-        if (x.NumEdges() > 2) return Vector2.zero;
+        if (x.NumEdges() > 2) return Vector3.zero;
 
         // First, calculate the gradient of K_f(x, y) wrt "wrt"
-        Vector2 grad_Kf = TpeGradKf(x, y, wrt);
+        Vector3 grad_Kf = TpeGradKf(x, y, wrt);
         float Kf = TpeKf(x, y);
 
         float l_x = x.AvgLength();
         float l_y = y.AvgLength();
 
         // d/dy of area(x)
-        Vector2 grad_lx = LengthWrtVert(x, wrt);
+        Vector3 grad_lx = LengthWrtVert(x, wrt);
         // d/dy of area(y)
-        Vector2 grad_ly = LengthWrtVert(y, wrt);
+        Vector3 grad_ly = LengthWrtVert(y, wrt);
         // Evaluate the product rule for dx*dy
-        Vector2 prod_rule = grad_lx * l_y + l_x * grad_ly;
+        Vector3 prod_rule = grad_lx * l_y + l_x * grad_ly;
 
         // Evaluate the product rule for k dx dy
         return grad_Kf * l_x * l_y + Kf * prod_rule;
     }
 
-    public Vector2 TpeGrad(TangentMassPoint x, CurveVertex y, CurveVertex wrt)
+    public Vector3 TpeGrad(TangentMassPoint x, CurveVertex y, CurveVertex wrt)
     {
         // First, calculate the gradient of K_f(x, y)
-        Vector2 grad_Kf = TpeGradKf(x, y, wrt);
+        Vector3 grad_Kf = TpeGradKf(x, y, wrt);
         float Kf = TpeKfPts(x.point, y.Position(), x.tangent);
 
         float l_x = x.mass;
         float l_y = y.AvgLength();
 
         // Area gradient for x depends on whether the mass point is distant
-        Vector2 grad_lx = Vector2.zero;
+        Vector3 grad_lx = Vector3.zero;
         if (x.GetTPEPointType() == TPEPointType.Point)
             grad_lx = LengthWrtVert(x.curvePt, wrt);
         else if (x.GetTPEPointType() == TPEPointType.Edge)
@@ -147,25 +147,25 @@ public class TPE
             }
         }
         // d/dy of area(y)
-        Vector2 grad_ly = LengthWrtVert(y, wrt);
+        Vector3 grad_ly = LengthWrtVert(y, wrt);
         // Evaluate the product rule for dy*dy
-        Vector2 prod_rule = grad_lx * l_y + l_x * grad_ly;
+        Vector3 prod_rule = grad_lx * l_y + l_x * grad_ly;
 
         // Evalue the product rule for k dx dy
         return grad_Kf * l_x * l_y + Kf * prod_rule;
     }
 
-    public Vector2 TpeGrad(CurveVertex x, TangentMassPoint y, CurveVertex wrt)
+    public Vector3 TpeGrad(CurveVertex x, TangentMassPoint y, CurveVertex wrt)
     {
         // First, calculate the gradient of K_f(x, y)
-        Vector2 grad_Kf = TpeGradKf(x, y, wrt);
+        Vector3 grad_Kf = TpeGradKf(x, y, wrt);
         float Kf = TpeKfPts(x.Position(), y.point, x.Tangent());
 
         float l_x = x.AvgLength();
         float l_y = y.mass;
 
         // Area gradient for x depends on whether the mass point is distant
-        Vector2 grad_ly = Vector2.zero;
+        Vector3 grad_ly = Vector3.zero;
         if (y.GetTPEPointType() == TPEPointType.Point)
             grad_ly = LengthWrtVert(y.curvePt, wrt);
         else if (y.GetTPEPointType() == TPEPointType.Edge)
@@ -182,9 +182,9 @@ public class TPE
             }
         }
         // d/dy of area(y)
-        Vector2 grad_lx = LengthWrtVert(x, wrt);
+        Vector3 grad_lx = LengthWrtVert(x, wrt);
         // Evaluate the product rule for dy*dy
-        Vector2 prod_rule = grad_lx * l_y + l_x * grad_ly;
+        Vector3 prod_rule = grad_lx * l_y + l_x * grad_ly;
 
         // Evalue the product rule for k dx dy
         return grad_Kf * l_x * l_y + Kf * prod_rule;
@@ -193,49 +193,49 @@ public class TPE
     /// <summary>
     /// Tangent-Point-Energy Gradient Kernel-function
     /// </summary>
-    Vector2 TpeGradKf(CurveVertex i, CurveVertex j, CurveVertex wrt)
+    Vector3 TpeGradKf(CurveVertex i, CurveVertex j, CurveVertex wrt)
     {
-        if (i.Equals(j)) return Vector2.zero;
+        if (i.Equals(j)) return Vector3.zero;
 
         // Get positions and displacement vectors
-        Vector2 disp = i.Position() - j.Position();
-        Vector2 T_i = i.Tangent();
-        Vector2 unit_disp = disp.normalized; // Normalized displacement direction
+        Vector3 disp = i.Position() - j.Position();
+        Vector3 T_i = i.Tangent();
+        Vector3 unit_disp = disp.normalized; // Normalized displacement direction
 
         // Evaulate projection onto normal plane, v - <v,T> * T
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float numer = Mathf.Pow(normal_proj.magnitude, alpha); // Numerator of energy is norm of projection ^ alpha
         float denom = Mathf.Pow(disp.magnitude, beta); // Denominator of energy is distance between points ^ beta
         // Our Kernel function (Eq. 3) would now be numer / denom. However, we want its derivative.
 
         // Derivative of numerator
-        Vector2 deriv_numer = GradNormProjAlpha(i, j, wrt);
+        Vector3 deriv_numer = GradNormProjAlpha(i, j, wrt);
 
         // Derivative of denominator
-        Vector2 deriv_denom = Vector2.zero;
+        Vector3 deriv_denom = Vector3.zero;
         if (wrt.Equals(i))
             deriv_denom = beta * Mathf.Pow(disp.magnitude, beta - 1) * unit_disp;
         else if (wrt.Equals(j))
             deriv_denom = -beta * Mathf.Pow(disp.magnitude, beta - 1) * unit_disp;
 
         // Quotient rule for A / B
-        Vector2 total = (deriv_numer * denom - deriv_denom * numer) / (denom * denom);
+        Vector3 total = (deriv_numer * denom - deriv_denom * numer) / (denom * denom);
         return total;
     }
 
-    Vector2 TpeGradKf(TangentMassPoint i, CurveVertex j, CurveVertex wrt)
+    Vector3 TpeGradKf(TangentMassPoint i, CurveVertex j, CurveVertex wrt)
     {
-        Vector2 disp = i.point - j.Position();
-        Vector2 T_i = i.tangent;
-        Vector2 unit_disp = disp.normalized;
+        Vector3 disp = i.point - j.Position();
+        Vector3 T_i = i.tangent;
+        Vector3 unit_disp = disp.normalized;
 
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float numer = Mathf.Pow(normal_proj.magnitude, alpha);
         float denom = Mathf.Pow(disp.magnitude, beta);
 
-        Vector2 deriv_numer = GradNormProjAlpha(i, j, wrt);
+        Vector3 deriv_numer = GradNormProjAlpha(i, j, wrt);
 
-        Vector2 deriv_denom = Vector2.zero;
+        Vector3 deriv_denom = Vector3.zero;
         if (i.GetTPEPointType() == TPEPointType.Point && wrt.Equals(i.curvePt))
             deriv_denom = beta * Mathf.Pow(disp.magnitude, beta - 1) * unit_disp;
         else if (i.GetTPEPointType() == TPEPointType.Edge && (wrt.Equals(i.curvePt) || wrt.Equals(i.curvePt2)))
@@ -246,19 +246,19 @@ public class TPE
         return (deriv_numer * denom - deriv_denom * numer) / (denom * denom);
     }
 
-    Vector2 TpeGradKf(CurveVertex i, TangentMassPoint j, CurveVertex wrt)
+    Vector3 TpeGradKf(CurveVertex i, TangentMassPoint j, CurveVertex wrt)
     {
-        Vector2 disp = i.Position() - j.point;
-        Vector2 T_i = i.Tangent();
-        Vector2 unit_disp = disp.normalized;
+        Vector3 disp = i.Position() - j.point;
+        Vector3 T_i = i.Tangent();
+        Vector3 unit_disp = disp.normalized;
 
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float numer = Mathf.Pow(normal_proj.magnitude, alpha);
         float denom = Mathf.Pow(disp.magnitude, beta);
 
-        Vector2 deriv_numer = GradNormProjAlpha(i, j, wrt);
+        Vector3 deriv_numer = GradNormProjAlpha(i, j, wrt);
 
-        Vector2 deriv_denom = Vector2.zero;
+        Vector3 deriv_denom = Vector3.zero;
         if (wrt.Equals(i))
             deriv_denom = beta * Mathf.Pow(disp.magnitude, beta - 1) * unit_disp;
         if (j.GetTPEPointType() == TPEPointType.Point && wrt.Equals(j.curvePt))
@@ -275,19 +275,19 @@ public class TPE
     {
         if (i.Equals(j) || i.NumEdges() > 2) return 0;
 
-        Vector2 disp = i.Position() - j.Position();
-        Vector2 t_i = i.Tangent();
+        Vector3 disp = i.Position() - j.Position();
+        Vector3 t_i = i.Tangent();
 
-        Vector2 normal_proj = disp - Vector2.Dot(disp, t_i) * t_i;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, t_i) * t_i;
         float numer = Mathf.Pow(normal_proj.magnitude, alpha);
         float denom = Mathf.Pow(disp.magnitude, beta);
         return numer / denom;
     }
 
-    private float TpeKfPts(Vector2 p_x, Vector2 p_y, Vector2 tangent_x)
+    private float TpeKfPts(Vector3 p_x, Vector3 p_y, Vector3 tangent_x)
     {
-        Vector2 disp = p_x - p_y;
-        Vector2 n_proj = disp - Vector2.Dot(disp, tangent_x) * tangent_x;
+        Vector3 disp = p_x - p_y;
+        Vector3 n_proj = disp - Vector3.Dot(disp, tangent_x) * tangent_x;
         float numer = Mathf.Pow(n_proj.magnitude, alpha);
         float denom = Mathf.Pow(disp.magnitude, beta);
         return numer / denom;
@@ -301,7 +301,7 @@ public class TPE
         return l_x * l_y * kfxy;
     }
 
-    public float TpePairPts(Vector2 p_x, Vector2 p_y, Vector2 tangent_x, float l_x, float l_y)
+    public float TpePairPts(Vector3 p_x, Vector3 p_y, Vector3 tangent_x, float l_x, float l_y)
     {
         float kfxy = TpeKfPts(p_x, p_y, tangent_x);
         return l_x * l_y * kfxy;
@@ -333,17 +333,17 @@ public class TPE
     /// <param name="lengthVert"></param>
     /// <param name="wrt"></param>
     /// <returns></returns>
-    Vector2 LengthWrtVert(CurveVertex lengthVert, CurveVertex wrt)
+    Vector3 LengthWrtVert(CurveVertex lengthVert, CurveVertex wrt)
     {
         // If differentiating wrt self, need to consider both sides
         if (lengthVert == wrt)
         {
-            Vector2 sumDirections = Vector2.zero;
-            Vector2 center = lengthVert.Position();
+            Vector3 sumDirections = Vector3.zero;
+            Vector3 center = lengthVert.Position();
             for (int e = 0; e < lengthVert.NumEdges(); e++)
             {
-                Vector2 other = lengthVert.Edge(e).Opposite(lengthVert).Position();
-                Vector2 outward = other - center;
+                Vector3 other = lengthVert.Edge(e).Opposite(lengthVert).Position();
+                Vector3 outward = other - center;
                 outward = outward.normalized;
                 sumDirections += outward;
             }
@@ -358,12 +358,12 @@ public class TPE
                 CurveVertex other = lengthVert.Edge(e).Opposite(lengthVert);
                 if (other == wrt)
                 {
-                    Vector2 outward = other.Position() - lengthVert.Position();
+                    Vector3 outward = other.Position() - lengthVert.Position();
                     outward = outward.normalized;
                     return 0.5f * outward;
                 }
             }
-            return Vector2.zero;
+            return Vector3.zero;
         }
     }
 
@@ -374,32 +374,34 @@ public class TPE
     /// <param name="j"></param>
     /// <param name="wrt"></param>
     /// <returns></returns>
-    Vector2 GradNormProjAlpha(CurveVertex i, CurveVertex j, CurveVertex wrt)
+    Vector3 GradNormProjAlpha(CurveVertex i, CurveVertex j, CurveVertex wrt)
     {
-        Vector2 disp = i.Position() - j.Position();
-        Vector2 T_i = i.Tangent();
+        Vector3 disp = i.Position() - j.Position();
+        Vector3 T_i = i.Tangent();
         // Projection
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float proj_len = normal_proj.magnitude; // same as T_i x disp = CurveGenUtils.Cross(T_i, disp)
 
         // If the displacement is usually exactly perpendicular to the tangent, then the contribution is exactly 0;
-        if (proj_len < 1e-10) return Vector2.zero;
+        if (proj_len < 1e-10) return Vector3.zero;
 
         // Derivative of |f(x) - ...|^alpha = alpha * |f(x) - ...|^(alpha-1)
         float alpha_deriv = alpha * Mathf.Pow(proj_len, alpha - 1);
         // Normalized vector of projection onto normal vector
-        Vector2 proj_normalized = normal_proj / proj_len;
+        Vector3 proj_normalized = normal_proj / proj_len;
 
-        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
         if (wrt.Equals(i))
         {
-            deriv_disp.directional_x = new Vector2(1, 0);
-            deriv_disp.directional_y = new Vector2(0, 1);
+            deriv_disp.directional_x = new Vector3(1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, 1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, 1);
         }
         else if (wrt.Equals(j))
         {
-            deriv_disp.directional_x = new Vector2(-1, 0);
-            deriv_disp.directional_y = new Vector2(0, -1);
+            deriv_disp.directional_x = new Vector3(-1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, -1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, -1);
         }
 
         // Derivative of <f(x) - f(y), T> * T
@@ -410,37 +412,40 @@ public class TPE
         //float cross = CurveGenUtils.Cross(T_i, disp);
         //Debug.Log(cross);
 
-        Vector2 total = alpha_deriv * deriv_N_Proj.LeftMultiply(proj_normalized);
+        Vector3 total = alpha_deriv * deriv_N_Proj.LeftMultiply(proj_normalized);
         return total;
     }
 
-    Vector2 GradNormProjAlpha(TangentMassPoint i, CurveVertex j, CurveVertex wrt)
+    Vector3 GradNormProjAlpha(TangentMassPoint i, CurveVertex j, CurveVertex wrt)
     {
-        Vector2 disp = i.point - j.Position();
-        Vector2 T_i = i.tangent;
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 disp = i.point - j.Position();
+        Vector3 T_i = i.tangent;
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float proj_len = normal_proj.magnitude;
 
-        if (proj_len < 1e-10) return Vector2.zero;
+        if (proj_len < 1e-10) return Vector3.zero;
 
         float alpha_deriv = alpha * Mathf.Pow(proj_len, alpha - 1);
-        Vector2 proj_normalized = normal_proj / proj_len;
+        Vector3 proj_normalized = normal_proj / proj_len;
 
-        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
         if (i.GetTPEPointType() == TPEPointType.Point && wrt.Equals(i))
         {
-            deriv_disp.directional_x = new Vector2(1, 0);
-            deriv_disp.directional_y = new Vector2(0, 1);
+            deriv_disp.directional_x = new Vector3(1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, 1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, 1);
         }
         if (i.GetTPEPointType() == TPEPointType.Edge && (wrt.Equals(i.curvePt) || wrt.Equals(i.curvePt2)))
         {
-            deriv_disp.directional_x = new Vector2(0.5f, 0);
-            deriv_disp.directional_y = new Vector2(0, 0.5f);
+            deriv_disp.directional_x = new Vector3(0.5f, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, 0.5f, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, 0.5f);
         }
         else if (wrt.Equals(j))
         {
-            deriv_disp.directional_x = new Vector2(-1, 0);
-            deriv_disp.directional_y = new Vector2(0, -1);
+            deriv_disp.directional_x = new Vector3(-1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, -1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, -1);
         }
 
         VertJacobian deriv_T_inner = GradTangentProj(i, j, wrt);
@@ -449,33 +454,36 @@ public class TPE
         return alpha_deriv * deriv_N_Proj.LeftMultiply(proj_normalized);
     }
 
-    Vector2 GradNormProjAlpha(CurveVertex i, TangentMassPoint j, CurveVertex wrt)
+    Vector3 GradNormProjAlpha(CurveVertex i, TangentMassPoint j, CurveVertex wrt)
     {
-        Vector2 disp = i.Position() - j.point;
-        Vector2 T_i = i.Tangent();
-        Vector2 normal_proj = disp - Vector2.Dot(disp, T_i) * T_i;
+        Vector3 disp = i.Position() - j.point;
+        Vector3 T_i = i.Tangent();
+        Vector3 normal_proj = disp - Vector3.Dot(disp, T_i) * T_i;
         float proj_len = normal_proj.magnitude;
 
-        if (proj_len < 1e-10) return Vector2.zero;
+        if (proj_len < 1e-10) return Vector3.zero;
 
         float alpha_deriv = alpha * Mathf.Pow(proj_len, alpha - 1);
-        Vector2 proj_normalized = normal_proj / proj_len;
+        Vector3 proj_normalized = normal_proj / proj_len;
 
-        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+        VertJacobian deriv_disp = new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
         if (wrt.Equals(i))
         {
-            deriv_disp.directional_x = new Vector2(1, 0);
-            deriv_disp.directional_y = new Vector2(0, 1);
+            deriv_disp.directional_x = new Vector3(1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, 1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, 1);
         }
         else if (j.GetTPEPointType() == TPEPointType.Point && wrt.Equals(j))
         {
-            deriv_disp.directional_x = new Vector2(-1, 0);
-            deriv_disp.directional_y = new Vector2(0, -1);
+            deriv_disp.directional_x = new Vector3(-1, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, -1, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, -1);
         }
         else if (j.GetTPEPointType() == TPEPointType.Edge && (wrt.Equals(j.curvePt) || wrt.Equals(j.curvePt2)))
         {
-            deriv_disp.directional_x = new Vector2(-0.5f, 0);
-            deriv_disp.directional_y = new Vector2(0, -0.5f);
+            deriv_disp.directional_x = new Vector3(-0.5f, 0, 0);
+            deriv_disp.directional_y = new Vector3(0, -0.5f, 0);
+            deriv_disp.directional_z = new Vector3(0, 0, -0.5f);
         }
 
         VertJacobian deriv_T_inner = GradTangentProj(i, j, wrt);
@@ -490,18 +498,18 @@ public class TPE
     VertJacobian GradTangentProj(CurveVertex i, CurveVertex j, CurveVertex wrt)
     {
         // Differentiate the inner product
-        Vector2 disp = i.Position() - j.Position();
-        Vector2 T_i = i.Tangent();
-        float disp_dot_T = Vector2.Dot(disp, T_i);
+        Vector3 disp = i.Position() - j.Position();
+        Vector3 T_i = i.Tangent();
+        float disp_dot_T = Vector3.Dot(disp, T_i);
 
-        Vector2 inner_deriv_A_B = Vector2.zero;                     // ddx(d) * T
+        Vector3 inner_deriv_A_B = Vector3.zero;                     // ddx(d) * T
         if (wrt.Equals(i))
             inner_deriv_A_B = T_i;
         else if (wrt.Equals(j))
             inner_deriv_A_B = -T_i;
         VertJacobian deriv_T = VertexTangentWrtVert(i, wrt);        // ddx(T)
-        Vector2 inner_A_deriv_B = deriv_T.LeftMultiply(disp);       // d * ddx(T)
-        Vector2 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;    // ddx(<d,T>) = ddx(d) * T + d * ddx(T)
+        Vector3 inner_A_deriv_B = deriv_T.LeftMultiply(disp);       // d * ddx(T)
+        Vector3 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;    // ddx(<d,T>) = ddx(d) * T + d * ddx(T)
 
         // Now use product rule for <f(x) - f(y), T> * T
         VertJacobian deriv_A_B = VertJacobian.OuterProductToJacobian(T_i, deriv_inner); // ddx(<d,T>) * T
@@ -512,16 +520,16 @@ public class TPE
 
     VertJacobian GradTangentProj(TangentMassPoint i, CurveVertex j, CurveVertex wrt)
     {
-        Vector2 disp = i.point - j.Position();
-        Vector2 T_i = i.tangent;
-        float disp_dot_T = Vector2.Dot(disp, T_i);
+        Vector3 disp = i.point - j.Position();
+        Vector3 T_i = i.tangent;
+        float disp_dot_T = Vector3.Dot(disp, T_i);
 
-        Vector2 inner_deriv_A_B = Vector2.zero;
+        Vector3 inner_deriv_A_B = Vector3.zero;
         if (wrt.Equals(j))
             inner_deriv_A_B = -T_i;
         VertJacobian deriv_T = VertexTangentWrtVert(i.curvePt, wrt);
-        Vector2 inner_A_deriv_B = deriv_T.LeftMultiply(disp);
-        Vector2 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;
+        Vector3 inner_A_deriv_B = deriv_T.LeftMultiply(disp);
+        Vector3 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;
 
         VertJacobian deriv_A_B = VertJacobian.OuterProductToJacobian(T_i, deriv_inner);
         VertJacobian A_deriv_B = disp_dot_T * deriv_T;
@@ -531,16 +539,16 @@ public class TPE
 
     VertJacobian GradTangentProj(CurveVertex i, TangentMassPoint j, CurveVertex wrt)
     {
-        Vector2 disp = i.Position() - j.point;
-        Vector2 T_i = i.Tangent();
-        float disp_dot_T = Vector2.Dot(disp, T_i);
+        Vector3 disp = i.Position() - j.point;
+        Vector3 T_i = i.Tangent();
+        float disp_dot_T = Vector3.Dot(disp, T_i);
 
-        Vector2 inner_deriv_A_B = Vector2.zero;
+        Vector3 inner_deriv_A_B = Vector3.zero;
         if (wrt.Equals(i))
             inner_deriv_A_B = T_i;
         VertJacobian deriv_T = VertexTangentWrtVert(i, wrt);
-        Vector2 inner_A_deriv_B = deriv_T.LeftMultiply(disp);
-        Vector2 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;
+        Vector3 inner_A_deriv_B = deriv_T.LeftMultiply(disp);
+        Vector3 deriv_inner = inner_deriv_A_B + inner_A_deriv_B;
 
         VertJacobian deriv_A_B = VertJacobian.OuterProductToJacobian(T_i, deriv_inner);
         VertJacobian A_deriv_B = disp_dot_T * deriv_T;
@@ -554,35 +562,35 @@ public class TPE
     VertJacobian VertexTangentWrtVert(CurveVertex tangentVert, CurveVertex wrtVert)
     {
         if (tangentVert == null || wrtVert == null)
-            return new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+            return new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
 
         if (tangentVert.NumEdges() != 2)
         {
             if (tangentVert.NumEdges() == 1)
             {
                 CurveEdge edge = tangentVert.Edge(0);
-                Vector2 tangent = edge.Tangent();
+                Vector3 tangent = edge.Tangent();
                 // Derivative of T
                 return EdgeTangentWrtVert(edge, wrtVert);
             }
             else
             {
-                return new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+                return new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
             }
         }
 
         CurveEdge prevEdge = tangentVert.Edge(0);
         CurveEdge nextEdge = tangentVert.Edge(1);
 
-        Vector2 prevTangent = prevEdge.Tangent();
-        Vector2 nextTangent = nextEdge.Tangent();
+        Vector3 prevTangent = prevEdge.Tangent();
+        Vector3 nextTangent = nextEdge.Tangent();
 
-        Vector2 sumTangents = prevTangent + nextTangent;    //  T1+T2
+        Vector3 sumTangents = prevTangent + nextTangent;    //  T1+T2
         float normSum = sumTangents.magnitude;              // |T1+T2|
 
         VertJacobian derivSumTs = EdgeTangentWrtVert(prevEdge, wrtVert) + EdgeTangentWrtVert(nextEdge, wrtVert);    // ddx(T1+T2) = ddx(T1)+ddx(T2)
 
-        Vector2 derivNorm = derivSumTs.LeftMultiply(tangentVert.Tangent());         // ddx(|T1+T2|) = ddx(T1+T2) * T
+        Vector3 derivNorm = derivSumTs.LeftMultiply(tangentVert.Tangent());         // ddx(|T1+T2|) = ddx(T1+T2) * T
         VertJacobian deriv_A_B = derivSumTs * normSum;                                          // ddx(T1+T2) * |T1+T2|
         VertJacobian A_deriv_B = VertJacobian.OuterProductToJacobian(sumTangents, derivNorm);   // (T1+T2) * ddx(|T1+T2|)
 
@@ -597,17 +605,17 @@ public class TPE
         // Get positions
         CurveVertex prevVert = edge.GetPrevVertex();
         CurveVertex nextVert = edge.GetNextVertex();
-        Vector2 v_h = prevVert.Position();
-        Vector2 v_i = nextVert.Position();
+        Vector3 v_h = prevVert.Position();
+        Vector3 v_i = nextVert.Position();
 
         if (!wrtVert.Equals(prevVert) && !wrtVert.Equals(nextVert)) // Logic doesn't work if wrt is not part of the edge
-            return new VertJacobian { directional_x = Vector2.zero, directional_y = Vector2.zero };
+            return new VertJacobian { directional_x = Vector3.zero, directional_y = Vector3.zero, directional_z = Vector3.zero };
 
-        Vector2 v_tangent = v_i - v_h; // not normalized
+        Vector3 v_tangent = v_i - v_h; // not normalized
         float v_norm = v_tangent.magnitude;
-        Vector2 v_normalized = v_tangent / v_norm; // ddx(T)
+        Vector3 v_normalized = v_tangent / v_norm; // ddx(T)
 
-        VertJacobian I = new VertJacobian { directional_x = new Vector2(1, 0), directional_y = new Vector2(0, 1) };
+        VertJacobian I = new VertJacobian { directional_x = new Vector3(1, 0, 0), directional_y = new Vector3(0, 1, 0), directional_z = new Vector3(0, 0, 1) };
 
         VertJacobian deriv_A_B = I * v_norm; // Scaling the Jacobian        
         VertJacobian A_deriv_B = VertJacobian.OuterProductToJacobian(v_tangent, v_normalized);
@@ -618,12 +626,12 @@ public class TPE
         else return deriv;
     }
 
-    public float TPE_Kf_pts_sym(Vector2 p_x, Vector2 p_y, Vector2 tangent_x, Vector2 tangent_y,
+    public float TPE_Kf_pts_sym(Vector3 p_x, Vector3 p_y, Vector3 tangent_x, Vector3 tangent_y,
         float alpha, float beta) // alpha and beta may have other values than usual
     {
-        Vector2 disp = p_x - p_y;
-        Vector2 n_proj_x = disp - Vector2.Dot(disp, tangent_x) * tangent_x;
-        Vector2 n_proj_y = disp - Vector2.Dot(disp, tangent_y) * tangent_y;
+        Vector3 disp = p_x - p_y;
+        Vector3 n_proj_x = disp - Vector3.Dot(disp, tangent_x) * tangent_x;
+        Vector3 n_proj_y = disp - Vector3.Dot(disp, tangent_y) * tangent_y;
 
         float numer_x = Mathf.Pow(n_proj_x.magnitude, alpha);
         float numer_y = Mathf.Pow(n_proj_y.magnitude, alpha);
@@ -632,16 +640,16 @@ public class TPE
         return 0.5f * (numer_x + numer_y) / denom;
     }
 
-    internal Vector2 EdgeLengthWrtVert(CurveEdge edge, CurveVertex wrt)
+    internal Vector3 EdgeLengthWrtVert(CurveEdge edge, CurveVertex wrt)
     {
         if (!edge.GetPrevVertex().Equals(wrt) && !edge.GetNextVertex().Equals(wrt))
-            return Vector2.zero;
+            return Vector3.zero;
 
-        Vector2 wrt_pos = wrt.Position();
-        Vector2 opp_pos = edge.Opposite(wrt).Position();
+        Vector3 wrt_pos = wrt.Position();
+        Vector3 opp_pos = edge.Opposite(wrt).Position();
 
         // To increase the edge length, we want to move away from the opposite vertex
-        Vector2 outward = wrt_pos - opp_pos;
+        Vector3 outward = wrt_pos - opp_pos;
         return outward.normalized;
     }
 }

@@ -76,7 +76,7 @@ public class EnergyCurve : Curve
             for (int i = 0; i < bezierConfig.numPoints; i++)
             {
                 float alpha = Random.Range(-Mathf.PI, Mathf.PI);
-                splinePoints.Add(bezierConfig.radius * Random.value * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
+                splinePoints.Add(bezierConfig.radius * Random.value * new Vector3(Mathf.Cos(alpha), 0, Mathf.Sin(alpha)));
             }
 
             //points = FPDS.Sampling(Vector2.one * -radius, Vector2.one * radius, radius / 10, numPoints);
@@ -94,7 +94,12 @@ public class EnergyCurve : Curve
             for (int i = 0; i < circularConfig.numPoints; i++)
             {
                 float alpha = (i / (float)circularConfig.numPoints) * Mathf.PI * 2f;
-                posList.Add(circularConfig.radius * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
+                float x = circularConfig.radius * Mathf.Cos(alpha);
+                float z = circularConfig.radius * Mathf.Sin(alpha);
+                float noiseScale = 0.1f;
+                float heightMultiplier = 3.0f;
+                float y = Mathf.PerlinNoise(x * noiseScale, z * noiseScale) * heightMultiplier;
+                posList.Add(new(x, y, z));
             }
             //points.ForEach(x => Debug.Log(x));
         }
@@ -341,7 +346,7 @@ public class EnergyCurve : Curve
 
         }
 
-        Debug.Log("Moved Length towards target " + DurationString());
+        //Debug.Log("Moved Length towards target " + DurationString());
 
         #region Gradient Assembling
         // Assemble gradients, either exaclty or with Barnes-Hut.
@@ -353,7 +358,7 @@ public class EnergyCurve : Curve
             //Debug.Log("Computed BH-Tree " + DurationString());
         }
         AddAllGradients(treeRoot, vertGradients);
-        Debug.Log("Assembled Gradients " + DurationString());
+        //Debug.Log("Assembled Gradients " + DurationString());
         Matrix<float> l2Gradients = vertGradients;
         #endregion
 
@@ -364,7 +369,7 @@ public class EnergyCurve : Curve
         //Debug.Log("Projected Gradient " + DurationString());
         if (soboDot == float.NaN)
         {
-            Debug.Log("Sobolev projection produced NaN; aborting.");
+            Debug.LogWarning("Sobolev projection produced NaN; aborting.");
             return Tuple.Create(false, true);
         }
         //else Debug.Log("Sobolev gradient norm: " + soboDot);
@@ -405,7 +410,7 @@ public class EnergyCurve : Curve
         //Debug.Log(soboDot);
         normZero = soboDot < float.NegativeInfinity;//1e-4f; Never true
 
-        Debug.Log("Step duration: " + DurationString());
+        //Debug.Log("Step duration: " + DurationString());
         return Tuple.Create(stepSize > lsStepThreshold, true);
     }
 
