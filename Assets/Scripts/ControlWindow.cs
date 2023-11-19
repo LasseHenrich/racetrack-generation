@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using UnityEditor;
 
 public class ControlWindow : ToolWindow
 {
@@ -36,7 +37,7 @@ public class ControlWindow : ToolWindow
     {
         get
         {
-            return new EnergyCurve_EditorConfig(curveClosed, lengthScale, deacObsAfterScaling, rotateAfterScaling, noRepulsionAfterScaling, genModeConfig, ObstacleList, numObstacles, PotentialList, ConstraintList);
+            return new EnergyCurve_EditorConfig(curveClosed, lengthScale, deacObsAfterScaling, rotateAfterScaling, noRepulsionAfterScaling, genModeConfig, ObsSelfDefined_ObstacleList, obsSelfDefined_numObstacles, PotentialList, ConstraintList);
         }
     }
 
@@ -73,16 +74,17 @@ public class ControlWindow : ToolWindow
 
     #region Obstacles
 
-    bool overrideObstacles = false;
-    int numObstacles = 10;
-    readonly List<ObstacleConfig> obstacleList = new();
-    List<ObstacleConfig> ObstacleList
+    ObstacleGenerationMode obstacleGenerationMode = ObstacleGenerationMode.Circular;
+    int obsSelfDefined_numObstacles = 10;
+    readonly List<ObstacleConfig> obsSelfDefined_obstacleList = new();
+    List<ObstacleConfig> ObsSelfDefined_ObstacleList
     {
         get
         {
-            return overrideObstacles ? obstacleList : null;
+            return obstacleGenerationMode == ObstacleGenerationMode.SelfDefined ? obsSelfDefined_obstacleList : null;
         }
     }
+    string obsFromMesh_filePath = "test";
 
     #endregion
 
@@ -111,6 +113,9 @@ public class ControlWindow : ToolWindow
         }
     }
     Spline InitialSpline { get { return Curve.spline; } }
+    
+    List<Vector3> obsFromMesh_vertices = new();
+    List<int> obsFromMesh_triangles = new();
 
     #endregion
 
@@ -225,22 +230,25 @@ public class ControlWindow : ToolWindow
                     CreateLabel("");
                     CreateLabel("Obstacles");
 
-                    CreateSlider(ref numObstacles, "Obstacles", 0, 20);
-                    CreateCheckbox("Override Obstacles", ref overrideObstacles);
+                    CreateEnumSelection("Obstacle Generation Mode", ref obstacleGenerationMode);
 
-                    if (overrideObstacles)
+                    if (obstacleGenerationMode == ObstacleGenerationMode.SelfDefined || obstacleGenerationMode == ObstacleGenerationMode.Circular)
                     {
+                        CreateSlider(ref obsSelfDefined_numObstacles, "Obstacles", 0, 20);
+                    }
 
+                    if (obstacleGenerationMode == ObstacleGenerationMode.SelfDefined)
+                    {
                         //EditorGUIUtility.labelWidth = 50;
                         //EditorGUIUtility.fieldWidth = 20;
-                        for (int i = 0; i < numObstacles; i++)
+                        for (int i = 0; i < obsSelfDefined_numObstacles; i++)
                         {
                             GUILayout.BeginHorizontal();
                             GUILayout.Label("Obstacle " + (i + 1));
 
-                            if (i >= obstacleList.Count) obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector3.zero));
+                            if (i >= obsSelfDefined_obstacleList.Count) obsSelfDefined_obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector3.zero));
 
-                            ObstacleConfig obs = obstacleList[i];
+                            ObstacleConfig obs = obsSelfDefined_obstacleList[i];
 
                             CreateFloatField("Weight", ref obs.weight);
                             CreateIntField("Points", ref obs.numPoints);
@@ -250,19 +258,32 @@ public class ControlWindow : ToolWindow
                             GUILayout.EndHorizontal();
                         }
 
-                        if (obstacleList.Count > numObstacles)
+                        if (obsSelfDefined_obstacleList.Count > obsSelfDefined_numObstacles)
                         {
-                            obstacleList.RemoveRange(Mathf.Max(numObstacles - 1, 0), obstacleList.Count - numObstacles);
+                            obsSelfDefined_obstacleList.RemoveRange(Mathf.Max(obsSelfDefined_numObstacles - 1, 0), obsSelfDefined_obstacleList.Count - obsSelfDefined_numObstacles);
                         }
 
                         // Reset
                         //EditorGUIUtility.labelWidth = 0;
                         //EditorGUIUtility.fieldWidth = 0;
+
+                    }
+                    else if (obstacleGenerationMode == ObstacleGenerationMode.Circular)
+                    {
+
+                    }
+                    else if (obstacleGenerationMode == ObstacleGenerationMode.FromMesh)
+                    {
+                        CreateMeshLoadingField("Path to Mesh", ref obsFromMesh_filePath, ref obsFromMesh_vertices, ref obsFromMesh_triangles);
                     }
 
-                    if (numObstacles > 0)
+
+                    if (obstacleGenerationMode == ObstacleGenerationMode.SelfDefined || obstacleGenerationMode == ObstacleGenerationMode.Circular)
                     {
-                        CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
+                        if (obsSelfDefined_numObstacles > 0)
+                        {
+                            CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
+                        }
                     }
 
                     #endregion
@@ -717,4 +738,11 @@ public class MeshTopologyEditorConfig
         this.materials = materials;
         this.showFoldout = showFoldout;
     }
+}
+
+enum ObstacleGenerationMode
+{
+    SelfDefined,
+    Circular,
+    FromMesh
 }

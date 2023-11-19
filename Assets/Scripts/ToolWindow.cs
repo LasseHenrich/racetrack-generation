@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using UnityEngine;
 
 public class ToolWindow : MonoBehaviour
@@ -44,16 +46,19 @@ public class ToolWindow : MonoBehaviour
 
     protected void CreateTextField(string name, ref string input)
     {
-        input = GUILayout.TextField(name, input);
+        CreateLabel(name);
+        input = GUILayout.TextField(input);
     }
 
     protected void CreateIntField(string name, ref int input)
     {
-        input = int.TryParse(GUILayout.TextField(name + ": " + input), out int result) ? result : input;
+        CreateLabel(name);
+        input = int.TryParse(GUILayout.TextField(input + ""), out int result) ? result : input;
     }
     protected void CreateFloatField(string name, ref float input)
     {
-        input = float.TryParse(GUILayout.TextField(name + ": " + input), out float result) ? result : input;
+        CreateLabel(name);
+        input = float.TryParse(GUILayout.TextField(input + ""), out float result) ? result : input;
     }
 
     protected void CreateVector2Field(string name, ref Vector2 input)
@@ -185,9 +190,60 @@ public class ToolWindow : MonoBehaviour
 
     protected void CreateEnumSelection<T>(string name, ref T op) where T : Enum
     {
-        GUILayout.Label(name);
+        CreateLabel(name);
         string[] enumNames = Enum.GetNames(typeof(T));
         op = (T)(object)GUILayout.SelectionGrid((int)(object)op, enumNames, 2);
+    }
+
+    protected void CreateMeshLoadingField(string name, ref string filePath, ref List<Vector3> vertices, ref List<int> triangles)
+    {
+        string oldPath = filePath;
+        CreateTextField(name, ref filePath);
+        if (!File.Exists(filePath) || filePath == oldPath)
+            return;
+
+        vertices = new List<Vector3>();
+        triangles = new List<int>();
+        // More lists for normals, UVs, etc., if needed
+
+        string[] lines = File.ReadAllLines(filePath);
+        foreach (string line in lines)
+        {
+            if (line.StartsWith("v "))
+            {
+                string[] parts = line.Split(' ');
+                try
+                {
+                    vertices.Add(new Vector3(
+                        float.Parse(parts[1], CultureInfo.InvariantCulture),
+                        float.Parse(parts[2], CultureInfo.InvariantCulture),
+                        float.Parse(parts[3], CultureInfo.InvariantCulture)
+                    ));
+                }
+                catch (FormatException e)
+                {
+                    Debug.LogError("Format error in line: " + line + "\n" + e);
+                    continue;
+                }
+            }
+            else if (line.StartsWith("f "))
+            {
+                string[] parts = line.Split(' ');
+                try
+                {
+                    for (int i = 1; i < 4; i++) // Assumes triangular faces
+                    {
+                        string[] subParts = parts[i].Split('/');
+                        triangles.Add(int.Parse(subParts[0]) - 1);
+                    }
+                }
+                catch (FormatException e)
+                {
+                    Debug.LogError("Format error in line: " + line + "\n" + e);
+                    continue;
+                }
+            }
+        }
     }
 
     #endregion
