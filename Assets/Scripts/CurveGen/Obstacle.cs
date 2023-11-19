@@ -27,7 +27,7 @@ public class Obstacle : Curve // ToDo: Make inherit from Potential
         for (int i = 0; i < numPoints; i++)
         {
             float alpha = (i / (float)numPoints) * Mathf.PI * 2f;
-            vertPositions.Add(center + radius * new Vector3(Mathf.Cos(alpha), Mathf.Sin(alpha), 0));
+            vertPositions.Add(center + radius * new Vector3(Mathf.Cos(alpha), 0, Mathf.Sin(alpha)));
         }
         InitVertsEdgesFromPositions(vertPositions);
 

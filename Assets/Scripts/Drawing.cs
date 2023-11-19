@@ -10,11 +10,13 @@ public class Drawing : MonoBehaviour
 
     #region Colors
 
+    // Note: Different colors don't work atm, probably because we only use one obstacle
     [SerializeField] Color controlHandleColor = new(0.2f, 0.5f, 0.2f);
     [SerializeField] Color anchorHandleColor = new(255f / 255f, 225f / 255f, 67f / 255f);
     [SerializeField] Color lineColor = new(0, 0, 0);
     [SerializeField] Color splineColor = new(0.2f, 0.2f, 0.5f);
     [SerializeField] Color polyColor = new(0.4f, 0.6f, 1f);
+    [SerializeField] Color obstacleColor = new(1f, 0f, 0f);
 
     #endregion
 
@@ -33,6 +35,7 @@ public class Drawing : MonoBehaviour
     ControlWindow ctrlWindow;
     EnergyCurve Curve { get { return ctrlWindow.Curve; } }
     List<CurveVertex> PolyPoints { get { return Curve.verts; } }
+    List<Obstacle> Obstacles { get { return Curve.obstacles; } }
 
     void Start()
     {
@@ -48,42 +51,66 @@ public class Drawing : MonoBehaviour
         }
 
         GL.PushMatrix();
-        mat.SetPass(0);
+        if (!mat.SetPass(0))
+            return;
 
         #region Polyline
         if (PolyPoints != null)
         {
-            GL.Begin(GL.QUADS);
-
             GL.Color(polyColor);
-            List<Vector3> polyPoints3D = new();
+
+            List<Vector3> polyPoints = new();
             for (int i = 0; i < PolyPoints.Count; i++)
-                polyPoints3D.Add(PolyPoints[i].Position());
-            if (ctrlWindow.curveClosed) polyPoints3D.Add(PolyPoints[0].Position());
+                polyPoints.Add(PolyPoints[i].Position());
+            if (ctrlWindow.curveClosed) polyPoints.Add(PolyPoints[0].Position());
 
             if (ctrlWindow.showPolyLine)
-            {
-                for (int i = 0; i < polyPoints3D.Count - 1; i++)
-                {
-                    DrawGLLine(polyPoints3D[i], polyPoints3D[i + 1], polylineWidth);
-                }
-            }
-
-            GL.End();
+                DrawGLLinesFromList(polyPoints);
 
             if (ctrlWindow.showPolyPoints)
+                DrawGLDiscsFromList(polyPoints, polylineWidth);
+        }
+        #endregion
+
+        #region Obstacles
+        if (Obstacles != null && ctrlWindow.showObstacles)
+        {
+            GL.Color(obstacleColor);
+
+            foreach (Obstacle obs in Obstacles)
             {
-                GL.Begin(GL.TRIANGLES);
-                for (int i = 0; i < PolyPoints.Count; i++)
-                {
-                    DrawGLDisc(PolyPoints[i].Position(), polylineDiscWidth);
-                }
-                GL.End();
+                List<Vector3> obstaclePoints = new();
+                foreach (CurveVertex vert in obs.verts)
+                    obstaclePoints.Add(vert.Position());
+                obstaclePoints.Add(obs.verts[0].Position());
+
+                if (ctrlWindow.showPolyLine)
+                    DrawGLLinesFromList(obstaclePoints);
+
+                if (ctrlWindow.showPolyPoints)
+                    DrawGLDiscsFromList(obstaclePoints, polylineWidth);
             }
+
         }
         #endregion
 
         GL.PopMatrix();
+    }
+
+    void DrawGLLinesFromList(List<Vector3> list)
+    {
+        GL.Begin(GL.QUADS);
+        for (int i = 0; i < list.Count - 1; i++)
+            DrawGLLine(list[i], list[i + 1], polylineWidth);
+        GL.End();
+    }
+
+    void DrawGLDiscsFromList(List<Vector3> list, float radius)
+    {
+        GL.Begin(GL.TRIANGLES);
+        for (int i = 0; i < list.Count - 1; i++)
+            DrawGLDisc(list[i], radius);
+        GL.End();
     }
 
     void DrawGLLine(Vector3 start, Vector3 end, float width)

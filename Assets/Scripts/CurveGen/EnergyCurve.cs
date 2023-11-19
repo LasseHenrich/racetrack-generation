@@ -143,7 +143,7 @@ public class EnergyCurve : Curve
                 {
                     float angle = i * 2 * Mathf.PI / numInnerObstacles;
                     float radius = Random.Range(innerRadius + innerObstacleRadius + 1, outerRadius);
-                    Vector3 pos = new(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
+                    Vector3 pos = new(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
 
                     s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 0.25f, numPoints = 10, radius = innerObstacleRadius, center = pos });
                 }

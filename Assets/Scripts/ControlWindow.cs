@@ -24,7 +24,7 @@ public class ControlWindow : ToolWindow
     bool showBezierHandles = true;
     public bool showPolyLine = true;
     public bool showPolyPoints = true;
-    bool showObstacles = true;
+    public bool showObstacles = true;
     bool useBarnesHut = true;
     bool useBackproj = true;
     bool runningLineSearch = false;
@@ -238,7 +238,7 @@ public class ControlWindow : ToolWindow
                             GUILayout.BeginHorizontal();
                             GUILayout.Label("Obstacle " + (i + 1));
 
-                            if (i >= obstacleList.Count) obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector2.zero));
+                            if (i >= obstacleList.Count) obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector3.zero));
 
                             ObstacleConfig obs = obstacleList[i];
 
