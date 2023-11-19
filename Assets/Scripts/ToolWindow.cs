@@ -183,5 +183,12 @@ public class ToolWindow : MonoBehaviour
         }
     }
 
+    protected void CreateEnumSelection<T>(string name, ref T op) where T : Enum
+    {
+        GUILayout.Label(name);
+        string[] enumNames = Enum.GetNames(typeof(T));
+        op = (T)(object)GUILayout.SelectionGrid((int)(object)op, enumNames, 2);
+    }
+
     #endregion
 }
