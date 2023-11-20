@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 public class ToolWindow : MonoBehaviour
@@ -193,6 +195,20 @@ public class ToolWindow : MonoBehaviour
         CreateLabel(name);
         string[] enumNames = Enum.GetNames(typeof(T));
         op = (T)(object)GUILayout.SelectionGrid((int)(object)op, enumNames, 2);
+    }
+
+    protected void CreateClassSelection<T>(string name, ref T op) where T : class
+    {
+        CreateLabel(name);
+        Type baseType = typeof(T);
+        var subclassTypes = Assembly.GetAssembly(baseType)
+            .GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && t.IsSubclassOf(baseType))
+            .ToList();
+        string[] subclassNames = subclassTypes.Select(t => t.Name).ToArray();
+        int currentIndex = op != null ? subclassTypes.IndexOf(op.GetType()) : -1;
+        int selectedIndex = GUILayout.SelectionGrid(currentIndex, subclassNames, 2);
+        op = (T)Activator.CreateInstance(subclassTypes[selectedIndex]);
     }
 
     protected void CreateMeshLoadingField(string name, ref string filePath, ref List<Vector3> vertices, ref List<int> triangles)
