@@ -119,25 +119,25 @@ public class EnergyCurve : Curve
         #region Obstacles
 
         obstacles = new();
-        if (config.obstacles != null)
+        if (config.obstacleGenerationConfig is ObstacleGenerationConfig_SelfDefined selfDefinedConfig)
         {
-            foreach (ObstacleConfig obsConf in config.obstacles)
+            foreach (ObstacleConfig obsConf in selfDefinedConfig.obstacleList)
             {
                 obstacles.Add(new(p_exp: beta - alpha, weight: obsConf.weight, numPoints: obsConf.numPoints, radius: obsConf.radius, center: obsConf.center));
             }
         }
-        else
+        else if (config.obstacleGenerationConfig is ObstacleGenerationConfig_Circular circularObstacleConfig)
         {
-            if (config.genModeConfig is GenModeConfig_Circular circularConfig)
+            if (config.genModeConfig is GenModeConfig_Circular circularGenConfig)
             {
                 s_obstacles = new();
 
-                float innerRadius = circularConfig.radius;
+                float innerRadius = circularGenConfig.radius;
                 float outerRadius = innerRadius * 4;
 
                 s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 1, numPoints = (int)outerRadius * 3, radius = outerRadius, center = Vector3.zero });
 
-                int numInnerObstacles = config.numObstacles; // - 1;
+                int numInnerObstacles = circularObstacleConfig.numObstacles; // - 1;
 
                 for (int i = 0; i < numInnerObstacles; i++)
                 {
@@ -151,6 +151,10 @@ public class EnergyCurve : Curve
                 S_TryInitObstacles();
             }
             else throw new Exception("Algorithmically generating obstacles is only supported with Circular GenMode!");
+        }
+        else if (config.obstacleGenerationConfig is ObstacleGenerationConfig_FromMesh fromMeshConfig)
+        {
+
         }
 
         this.deacObsAfterScaling = config.deacObsAfterScaling;
@@ -926,8 +930,7 @@ public class EnergyCurve_EditorConfig // ToDo: Outsource deacObsAfterScaling, ob
     public bool rotateAfterScaling;
     public bool noRepulsionAfterScaling;
     public GenModeConfig genModeConfig;
-    public List<ObstacleConfig> obstacles;
-    public int numObstacles;
+    public ObstacleGenerationConfig obstacleGenerationConfig;
     public List<PotentialConfig> potentials;
     public List<ConstraintType> constraints;
 
@@ -946,7 +949,7 @@ public class EnergyCurve_EditorConfig // ToDo: Outsource deacObsAfterScaling, ob
     /// Needed for when obstacles should be overriden
     /// </param>
     /// <param name="constraints"></param>
-    public EnergyCurve_EditorConfig(bool curveClosed, float targetLengthScale, bool deacObsAfterScaling, bool rotateAfterScaling, bool noRepulsionAfterScaling, GenModeConfig genModeConfig, List<ObstacleConfig> obstacles, int numObstacles, List<PotentialConfig> potentials, List<ConstraintType> constraints)
+    public EnergyCurve_EditorConfig(bool curveClosed, float targetLengthScale, bool deacObsAfterScaling, bool rotateAfterScaling, bool noRepulsionAfterScaling, GenModeConfig genModeConfig, ObstacleGenerationConfig obstacleGenerationConfig, List<PotentialConfig> potentials, List<ConstraintType> constraints)
     {
         this.curveClosed = curveClosed;
         this.targetLengthScale = targetLengthScale;
@@ -954,8 +957,7 @@ public class EnergyCurve_EditorConfig // ToDo: Outsource deacObsAfterScaling, ob
         this.rotateAfterScaling = rotateAfterScaling;
         this.noRepulsionAfterScaling = noRepulsionAfterScaling;
         this.genModeConfig = genModeConfig;
-        this.obstacles = obstacles;
-        this.numObstacles = numObstacles;
+        this.obstacleGenerationConfig = obstacleGenerationConfig;
         this.potentials = potentials;
         this.constraints = constraints;
     }
