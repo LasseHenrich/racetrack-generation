@@ -74,7 +74,7 @@ public class ControlWindow : ToolWindow
 
     #region Obstacles
 
-    ObstacleGenerationConfig obstacleGenerationConfig = new ObstacleGenerationConfig_Circular();
+    ObstacleGenerationConfig obstacleGenerationConfig = new ObstacleGenerationConfig_SpheresInBox();
 
     #endregion
 
@@ -256,9 +256,10 @@ public class ControlWindow : ToolWindow
                         if (selfDefinedConfig.numObstacles > 0)
                             CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
                     }
-                    else if (obstacleGenerationConfig is ObstacleGenerationConfig_Circular circularConfig)
+                    else if (obstacleGenerationConfig is ObstacleGenerationConfig_SpheresInBox circularConfig)
                     {
-                        CreateSlider(ref circularConfig.numObstacles, "Obstacles", 0, 20);
+                        CreateSlider(ref circularConfig.numObstacles, "Spherical obstacles", 0, 20);
+                        CreateVector3Field("Box Bounds", ref circularConfig.bounds);
                         if (circularConfig.numObstacles > 0)
                             CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
                     }
@@ -735,9 +736,10 @@ public class ObstacleGenerationConfig_SelfDefined : ObstacleGenerationConfig
 }
 
 [Serializable]
-public class ObstacleGenerationConfig_Circular : ObstacleGenerationConfig
+public class ObstacleGenerationConfig_SpheresInBox : ObstacleGenerationConfig
 {
     public int numObstacles = 10;
+    public Vector3 bounds = new(30, 30, 30);
 }
 
 [Serializable]

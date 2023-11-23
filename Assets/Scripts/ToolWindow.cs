@@ -65,15 +65,19 @@ public class ToolWindow : MonoBehaviour
 
     protected void CreateVector2Field(string name, ref Vector2 input)
     {
-        CreateFloatField(name + " X", ref input.x);
-        CreateFloatField(name + " Y", ref input.y);
+        float x = input.x, y = input.y;
+        CreateFloatField(name + " X", ref x);
+        CreateFloatField(name + " Y", ref y);
+        input = new(x, y);
     }
 
     protected void CreateVector3Field(string name, ref Vector3 input)
     {
-        CreateFloatField(name + " X", ref input.x);
-        CreateFloatField(name + " Y", ref input.y);
-        CreateFloatField(name + " Z", ref input.z);
+        float x = input.x, y = input.y, z = input.z;
+        CreateFloatField(name + " X", ref x);
+        CreateFloatField(name + " Y", ref y);
+        CreateFloatField(name + " Z", ref z);
+        input = new(x, y, z);
     }
 
     protected void CreateButton(string name, System.Action callback)

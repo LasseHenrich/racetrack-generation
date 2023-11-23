@@ -79,16 +79,18 @@ public class Drawing : MonoBehaviour
 
             foreach (Obstacle obs in Obstacles)
             {
-                List<Vector3> obstaclePoints = new();
-                foreach (CurveVertex vert in obs.verts)
-                    obstaclePoints.Add(vert.Position());
-                obstaclePoints.Add(obs.verts[0].Position());
-
-                if (ctrlWindow.showPolyLine)
-                    DrawGLLinesFromList(obstaclePoints);
-
-                if (ctrlWindow.showPolyPoints)
-                    DrawGLDiscsFromList(obstaclePoints, polylineWidth);
+                if (obs is SphereObstacle sphereObstacle)
+                {
+                    DrawGLSphere(sphereObstacle.center, sphereObstacle.radius);
+                }
+                else if (obs is PlaneObstacle planeObstacle)
+                {
+                    DrawGLPlane(planeObstacle.pointA, planeObstacle.pointB, planeObstacle.pointC);
+                }
+                else
+                {
+                    Debug.LogWarning("Drawing not yet implemented for obstacle type");
+                }
             }
 
         }
@@ -99,22 +101,20 @@ public class Drawing : MonoBehaviour
 
     void DrawGLLinesFromList(List<Vector3> list)
     {
-        GL.Begin(GL.QUADS);
         for (int i = 0; i < list.Count - 1; i++)
             DrawGLLine(list[i], list[i + 1], polylineWidth);
-        GL.End();
     }
 
     void DrawGLDiscsFromList(List<Vector3> list, float radius)
     {
-        GL.Begin(GL.TRIANGLES);
         for (int i = 0; i < list.Count - 1; i++)
             DrawGLDisc(list[i], radius);
-        GL.End();
     }
 
     void DrawGLLine(Vector3 start, Vector3 end, float width)
     {
+        GL.Begin(GL.QUADS);
+
         Vector3 direction = (end - start).normalized;
         Vector3 cross = Vector3.Cross(direction, Vector3.up).normalized * width / 2.0f;
 
@@ -122,10 +122,14 @@ public class Drawing : MonoBehaviour
         GL.Vertex(start + cross);
         GL.Vertex(end + cross);
         GL.Vertex(end - cross);
+
+        GL.End();
     }
 
     void DrawGLDisc(Vector3 center, float radius)
     {
+        GL.Begin(GL.TRIANGLES);
+
         int resolution = 20;
         for (int i = 0; i < resolution; i++)
         {
@@ -139,5 +143,53 @@ public class Drawing : MonoBehaviour
             GL.Vertex(vertex2);
             GL.Vertex(vertex1);
         }
+
+        GL.End();
+    }
+
+    void DrawGLSphere(Vector3 center, float radius)
+    {
+        GL.Begin(GL.TRIANGLES);
+
+        int resolution = 10;
+        for (int i = 0; i <= resolution; i++)
+        {
+            float angle = i * Mathf.PI / resolution;
+            Vector3 discCenter = new(center.x, Mathf.Sin(angle) * radius + center.y, center.z);
+            float discRadius = Mathf.Cos(angle) * radius;
+
+            DrawGLDisc(discCenter, discRadius);
+        }
+
+        GL.End();
+    }
+
+    void DrawGLPlane(Vector3 A, Vector3 B, Vector3 C)
+    {
+        GL.Begin(GL.TRIANGLES);
+
+        Vector3 midpoint = (A + C) / 2;
+        Vector3 vectorToAdjacent = B - midpoint;
+        List<Vector3> possibleDs = new()
+        {
+            A + B - C,
+            A - B + C,
+            -A + B + C
+        };
+
+        Vector3 D = possibleDs.Find((possD) => possD.sqrMagnitude <= A.sqrMagnitude && possD.sqrMagnitude <= B.sqrMagnitude && possD.sqrMagnitude <= C.sqrMagnitude);
+
+        Debug.Log($"{A}, {B}, {C}, {D}");
+
+        // Draw the two triangles that make up the plane
+        GL.Vertex(A);
+        GL.Vertex(B);
+        GL.Vertex(C);
+
+        GL.Vertex(B);
+        GL.Vertex(D);
+        GL.Vertex(C);
+
+        GL.End();
     }
 }

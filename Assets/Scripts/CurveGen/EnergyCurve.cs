@@ -123,10 +123,11 @@ public class EnergyCurve : Curve
         {
             foreach (ObstacleConfig obsConf in selfDefinedConfig.obstacleList)
             {
-                obstacles.Add(new(p_exp: beta - alpha, weight: obsConf.weight, numPoints: obsConf.numPoints, radius: obsConf.radius, center: obsConf.center));
+                //obstacles.Add(new(p_exp: beta - alpha, weight: obsConf.weight, numPoints: obsConf.numPoints, radius: obsConf.radius, center: obsConf.center));
+                obstacles.Add(new SphereObstacle(center: obsConf.center, radius: obsConf.radius, p_exp: beta - alpha));
             }
         }
-        else if (config.obstacleGenerationConfig is ObstacleGenerationConfig_Circular circularObstacleConfig)
+        else if (config.obstacleGenerationConfig is ObstacleGenerationConfig_SpheresInBox spheresInBoxConfig)
         {
             if (config.genModeConfig is GenModeConfig_Circular circularGenConfig)
             {
@@ -135,20 +136,50 @@ public class EnergyCurve : Curve
                 float innerRadius = circularGenConfig.radius;
                 float outerRadius = innerRadius * 4;
 
-                s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 1, numPoints = (int)outerRadius * 3, radius = outerRadius, center = Vector3.zero });
+                // Outer Box
+                List<Vector3> points = new()
+                {
+                    new Vector3(spheresInBoxConfig.bounds.x, spheresInBoxConfig.bounds.y, spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(-spheresInBoxConfig.bounds.x, spheresInBoxConfig.bounds.y, spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(spheresInBoxConfig.bounds.x, -spheresInBoxConfig.bounds.y, spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(spheresInBoxConfig.bounds.x, spheresInBoxConfig.bounds.y, -spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(-spheresInBoxConfig.bounds.x, -spheresInBoxConfig.bounds.y, spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(-spheresInBoxConfig.bounds.x, spheresInBoxConfig.bounds.y, -spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(spheresInBoxConfig.bounds.x, -spheresInBoxConfig.bounds.y, -spheresInBoxConfig.bounds.z) * 0.5f,
+                    new Vector3(-spheresInBoxConfig.bounds.x, -spheresInBoxConfig.bounds.y, -spheresInBoxConfig.bounds.z) * 0.5f,
+                };
 
-                int numInnerObstacles = circularObstacleConfig.numObstacles; // - 1;
+                float p_exp = beta - alpha; // Define the exponent value
+
+                List<PlaneObstacle> planeObstacles = new List<PlaneObstacle>
+                {
+                    new PlaneObstacle(points[0], points[1], points[3], p_exp),
+                    new PlaneObstacle(points[7], points[6], points[5], p_exp),
+                    new PlaneObstacle(points[0], points[2], points[3], p_exp),
+                    new PlaneObstacle(points[1], points[5], points[4], p_exp),
+                    new PlaneObstacle(points[1], points[0], points[2], p_exp),
+                    new PlaneObstacle(points[2], points[4], points[6], p_exp)
+                };
+                planeObstacles.ForEach((planeObstacle) => obstacles.Add(planeObstacle));
+
+
+                int numInnerObstacles = spheresInBoxConfig.numObstacles; // - 1;
 
                 for (int i = 0; i < numInnerObstacles; i++)
                 {
-                    float angle = i * 2 * Mathf.PI / numInnerObstacles;
-                    float radius = Random.Range(innerRadius + innerObstacleRadius + 1, outerRadius);
-                    Vector3 pos = new(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
+                    // Use spherical coordinates to ensure uniform distribution
+                    float u = Random.value;
+                    float v = Random.value;
+                    float theta = 2 * Mathf.PI * u;
+                    float phi = Mathf.Acos(2 * v - 1);
 
-                    s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 0.25f, numPoints = 10, radius = innerObstacleRadius, center = pos });
+                    // Convert spherical coordinates to Cartesian coordinates
+                    float x = Random.Range(-spheresInBoxConfig.bounds.x * 0.5f, spheresInBoxConfig.bounds.x * 0.5f);
+                    float y = Random.Range(-spheresInBoxConfig.bounds.y * 0.5f, spheresInBoxConfig.bounds.y * 0.5f);
+                    float z = Random.Range(-spheresInBoxConfig.bounds.z * 0.5f, spheresInBoxConfig.bounds.z * 0.5f);
+
+                    obstacles.Add(new SphereObstacle(center: new(x, y, z), radius: innerObstacleRadius, p_exp: p_exp));
                 }
-
-                S_TryInitObstacles();
             }
             else throw new Exception("Algorithmically generating obstacles is only supported with Circular GenMode!");
         }
@@ -882,18 +913,17 @@ public class EnergyCurve : Curve
 
     #region Serialization
 
-    public void S_TryInitObstacles()
-    {
-        obstacles = new();
-        foreach (var s_obs in s_obstacles)
-            obstacles.Add(new(p_exp: s_obs.p_exp, weight: s_obs.weight, numPoints: s_obs.numPoints, radius: s_obs.radius, center: s_obs.center));
-    }
-
     public void S_SerializeObstaclePositions()
     {
         s_obstacles = new();
         foreach (var obs in obstacles)
-            s_obstacles.Add(new S_ObstacleConfig { p_exp = obs.p_exp, weight = obs.weight, numPoints = obs.numPoints, radius = obs.radius, center = obs.center });
+        {
+            if (obs is SphereObstacle sphereObstacle)
+            {
+                //s_obstacles.Add(new S_ObstacleConfig { p_exp = obs.p_exp, weight = obs.weight, numPoints = obs.numPoints, radius = obs.radius, center = obs.center });
+                s_obstacles.Add(new S_ObstacleConfig { center = sphereObstacle.center, radius = sphereObstacle.radius, p_exp = sphereObstacle.p_exp });
+            }
+        }
     }
 
     public void S_TryInitConstraints()
