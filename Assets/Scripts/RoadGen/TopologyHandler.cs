@@ -536,6 +536,12 @@ public static class TopologyHandler
 
     public static void LogTopologies(List<TopologyRange> topologies)
     {
+        if (topologies == null)
+        {
+            Debug.LogWarning("Please first generate topologies.");
+            return;
+        }
+
         string output = "";
         topologies.ForEach(x => output += x + "\n");
         Debug.Log(output);
