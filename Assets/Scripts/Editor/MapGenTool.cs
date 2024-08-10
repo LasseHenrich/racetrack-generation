@@ -23,7 +23,7 @@ public class MapGenTool : ToolWindow
     #region Exposed
 
     public GenMode genMode = GenMode.Circular;
-    public RepulsionType repulsionType = RepulsionType.Normal;
+    public RepulsionType repulsionType = RepulsionType.Sobolev;
 
     bool curveClosed = true;
     bool deacObsAfterScaling = true;
@@ -159,7 +159,6 @@ public class MapGenTool : ToolWindow
         }
     }
 
-    bool overrideWidth = false;
     float roadPartLength = 1f;
     float bridgePartLength = 1f;
     float _widthMultiplier = 1f;
@@ -387,8 +386,7 @@ public class MapGenTool : ToolWindow
         CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
         CreateFloatField("Fixed Part Length Multiplier", ref _fixedPartLengthMultiplier);
         CreateFloatField("Crossing Extra Size", ref crossingExtraSize);
-        CreateButton("Calculate Maximum Road Width", CalculateWidthMultiplier);
-        CreateButton("Scale curve to fit width 1", ScaleCurveToFitWidth1);
+        CreateButton("Scale curve to fit width", ScaleCurveToFitWidth);
         CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
         #endregion
 
@@ -427,8 +425,7 @@ public class MapGenTool : ToolWindow
             }
         }
 
-        CreateCheckbox("Override Width", ref overrideWidth);
-        if (overrideWidth) CreateFloatField("Width Multiplier", ref _widthMultiplier);
+        CreateFloatField("Width Multiplier", ref _widthMultiplier);
         CreateFloatField("Height Multiplayer", ref _heightMultiplier);
         CreateFloatField("Road Part Length", ref roadPartLength);
         CreateFloatField("Bridge Part Length", ref bridgePartLength);
@@ -579,6 +576,16 @@ public class MapGenTool : ToolWindow
             Handles.color = lineColor;
             for (int i = 0; i < spline.NumSegments; i++) 
             {
+                // Sometimes the spline loses its points, so we need to recalculate them
+                try
+                {
+                    spline.GetPointsInSegment(i);
+                }
+                catch (Exception)
+                {
+                    spline.CalculateAllPointsInSegments();
+                }
+                
                 Vector2[] points = spline.GetPointsInSegment(i);
 
                 Vector3[] points3D = new Vector3[points.Length];
@@ -760,19 +767,11 @@ public class MapGenTool : ToolWindow
         //Debug.Log(bezierSpline);
     }
 
-    void CalculateWidthMultiplier()
+    void ScaleCurveToFitWidth()
     {
         float width = roadSpline.CalculateMinimumDistance();
-        float new_widthMultiplier = width / RoadObjectWrapper.road.mesh.bounds.size.x;
-        float _wToW = WidthMultiplier / _widthMultiplier;
-        _widthMultiplier = new_widthMultiplier / _wToW;
-        Debug.Log("New WidthMultiplier: " + WidthMultiplier);
-    }
-
-    void ScaleCurveToFitWidth1()
-    {
-        Debug.Log(_widthMultiplier);
-        roadSpline.ScaleByT(1 / _widthMultiplier);
+        float newWidthMultiplier = width / RoadObjectWrapper.road.mesh.bounds.size.x;
+        roadSpline.ScaleByT(WidthMultiplier / newWidthMultiplier);
     }
 
     void GenerateRoad()
