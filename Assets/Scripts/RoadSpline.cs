@@ -1,15 +1,9 @@
-using MathNet.Numerics.Distributions;
-using MathNet.Numerics.LinearAlgebra;
-using Newtonsoft.Json;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Xml.Linq;
 using UnityEngine;
 
+[Serializable]
 public class RoadSpline : Spline
 {
     public RoadSpline(Vector2 centre) : base(centre)

@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Drawing : MonoBehaviour
+public class Drawing_PlayMode : MonoBehaviour
 {
     [SerializeField] Material mat;
 
@@ -19,23 +19,23 @@ public class Drawing : MonoBehaviour
 
     #region Sizes
 
-    [SerializeField] float bezierWidth = 8f; // 20f
-    [SerializeField] float bezierLineWidth = 3f; // 5f
-    [SerializeField] float bezierHandleWidth = 1.4f;//1.0f;//0.6f;
+    //[SerializeField] float bezierWidth = 8f; // 20f
+    //[SerializeField] float bezierLineWidth = 3f; // 5f
+    //[SerializeField] float bezierHandleWidth = 1.4f;//1.0f;//0.6f;
     [SerializeField] float polylineWidth = 4f;
     [SerializeField] float polylineDiscWidth = 0.15f;
-    [SerializeField] float obstacleWidth = 2f;
-    [SerializeField] float obstacleDiscWidth = 0.15f;
+    //[SerializeField] float obstacleWidth = 2f;
+    //[SerializeField] float obstacleDiscWidth = 0.15f;
 
     #endregion
 
-    ControlWindow ctrlWindow;
+    ControlWindow_PlayMode ctrlWindow;
     EnergyCurve Curve { get { return ctrlWindow.Curve; } }
     List<CurveVertex> PolyPoints { get { return Curve.verts; } }
 
     void Start()
     {
-        ctrlWindow = FindObjectOfType<ControlWindow>();
+        ctrlWindow = FindObjectOfType<ControlWindow_PlayMode>();
     }
 
     private void OnPostRender()

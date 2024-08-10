@@ -1,14 +1,18 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+[Serializable]
 public class Spline
 {
+    [SerializeField, HideInInspector]
     public ObservableList<Vector2> controls;
+    [SerializeField, HideInInspector]
     protected bool isClosed;
+    [SerializeField, HideInInspector]
     bool autoSetControlPoints;
+    [SerializeField, HideInInspector]
     List<float> _segmentLengths;
 
     public bool IsClosed { get { return isClosed; } }
@@ -284,6 +288,13 @@ public class Spline
 
     public int LoopIndex(int i, int count) => (i + count) % count;
 
+    public void ScaleByT(float t)
+    {
+        for (int i = 0; i < controls.Count; i++)
+        {
+            controls[i] *= t;
+        }
+    }
 
     #endregion
 
@@ -677,6 +688,7 @@ public class Spline
     }
 }
 
+[Serializable]
 public class ObservableList<T>
 {
     readonly Spline observedObject; // Can't serialize this, would cause loop

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 
-public class ControlWindow : ToolWindow
+public class ControlWindow_PlayMode : ToolWindow_PlayMode
 {
     private Vector2 scrollPosition;
 
@@ -20,6 +20,8 @@ public class ControlWindow : ToolWindow
     bool deacObsAfterScaling = true;
     bool rotateAfterScaling = false;
     bool noRepulsionAfterScaling = false;
+    float lsStepThreshold = 1e-15f;
+    float energyThreshold = 0f;
     bool showBezier = true;
     bool showBezierHandles = true;
     public bool showPolyLine = true;
@@ -36,7 +38,7 @@ public class ControlWindow : ToolWindow
     {
         get
         {
-            return new EnergyCurve_EditorConfig(curveClosed, lengthScale, deacObsAfterScaling, rotateAfterScaling, noRepulsionAfterScaling, genModeConfig, ObstacleList, numObstacles, PotentialList, ConstraintList);
+            return new EnergyCurve_EditorConfig(curveClosed, lengthScale, deacObsAfterScaling, rotateAfterScaling, noRepulsionAfterScaling, lsStepThreshold, energyThreshold, genModeConfig, ObstacleList, numObstacles, PotentialList, ConstraintList);
         }
     }
 
@@ -120,6 +122,9 @@ public class ControlWindow : ToolWindow
     RoadSpline roadSpline;
     float epsilon = 0.2f;
     float psi = 2f;
+
+    // Intersections
+    //float intersectionPreferredDistance = 0f; //5f
 
     // Topology
     float _fixedPartLengthMultiplier = 1f;
@@ -316,6 +321,8 @@ public class ControlWindow : ToolWindow
                     CreateLabel("Other");
                     CreateCheckbox("Rotate after scaling", ref rotateAfterScaling);
                     CreateCheckbox("No repulsion after scaling", ref noRepulsionAfterScaling);
+                    CreateFloatField("LS step threshold", ref lsStepThreshold);
+                    CreateFloatField("energy threshold", ref energyThreshold);
 
                     #endregion
 
@@ -412,6 +419,15 @@ public class ControlWindow : ToolWindow
             CreateButton("Single Step LS", () => RepulsionUpdate());
             CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
             CreateCheckbox("Run LS", ref runningLineSearch);
+
+            /*
+            CreateButton("Generate Bezier Spline", GeneateBezierSpline);
+            CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
+
+            CreateButton("Calculate Maximum Road Width", CalculateWidthMultiplier);
+            CreateButton("Scale curve to fit width 1", ScaleCurveToFitWidth1);
+            CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
+            */
         });
 
         #endregion
@@ -662,59 +678,4 @@ public class ControlWindow : ToolWindow
     }
 
     */
-}
-
-[Serializable] public class Dict_ConstraintType_Bool : SerializableDictionary<ConstraintType, bool> { }
-[Serializable] public class Dict_PotentialType_Bool : SerializableDictionary<PotentialType, bool> { }
-[Serializable] public class Dict_PotentialType_PotentialConfig : SerializableDictionary<PotentialType, PotentialConfig> { }
-
-[Serializable]
-public class SerializableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ISerializationCallbackReceiver
-{
-    [SerializeField]
-    private List<TKey> keys = new List<TKey>();
-
-    [SerializeField]
-    private List<TValue> values = new List<TValue>();
-
-    // save the dictionary to lists
-    public void OnBeforeSerialize()
-    {
-        keys.Clear();
-        values.Clear();
-        foreach (KeyValuePair<TKey, TValue> pair in this)
-        {
-            keys.Add(pair.Key);
-            values.Add(pair.Value);
-        }
-    }
-
-    // load dictionary from lists
-    public void OnAfterDeserialize()
-    {
-        this.Clear();
-
-        if (keys.Count != values.Count)
-            throw new System.Exception(string.Format("there are {0} keys and {1} values after deserialization. Make sure that both key and value types are serializable."));
-
-        for (int i = 0; i < keys.Count; i++)
-            this.Add(keys[i], values[i]);
-    }
-}
-
-[Serializable]
-public class MeshTopologyEditorConfig
-{
-    public Mesh mesh;
-    public int numMaterials = 3;
-    public List<Material> materials = new();
-    public bool showFoldout;
-
-    public MeshTopologyEditorConfig(Mesh mesh, int numMaterials, List<Material> materials, bool showFoldout)
-    {
-        this.mesh = mesh;
-        this.numMaterials = numMaterials;
-        this.materials = materials;
-        this.showFoldout = showFoldout;
-    }
 }

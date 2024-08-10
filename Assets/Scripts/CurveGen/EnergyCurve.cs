@@ -1,12 +1,12 @@
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
+[Serializable]
 public class EnergyCurve : Curve
 {
     #region Variables
@@ -26,7 +26,8 @@ public class EnergyCurve : Curve
     /// <summary>
     /// Smallest possible step size
     /// </summary>
-    const float lsStepThreshold = 1e-15f;
+    float lsStepThreshold = 1e-15f;
+    float energyThreshold = 0f;
     /// <summary>
     /// If the "length" (Frobeniusnorm) of the gradient-matrix is less than a certain threshold (we're near a minimum), this parameter will be true
     /// </summary>
@@ -107,6 +108,9 @@ public class EnergyCurve : Curve
         lastStepSize = 0;
         normZero = false;
 
+        lsStepThreshold = Math.Max(config.lsStepThreshold, 1e-15f);
+        energyThreshold = config.energyThreshold;
+
         initialAvgLength = TotalLength() / NumEdges();
         targetLength = config.targetLengthScale * TotalLength();
         InitConstraints(config.constraints);
@@ -138,7 +142,7 @@ public class EnergyCurve : Curve
                 {
                     float angle = i * 2 * Mathf.PI / numInnerObstacles;
                     float radius = Random.Range(innerRadius + innerObstacleRadius + 1, outerRadius);
-                    Vector2 pos = new(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
+                    Vector2 pos = new (Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
 
                     s_obstacles.Add(new S_ObstacleConfig { p_exp = beta - alpha, weight = 0.25f, numPoints = 10, radius = innerObstacleRadius, center = pos });
                 }
@@ -199,6 +203,9 @@ public class EnergyCurve : Curve
         lastStepSize = 0;
         normZero = false;
         targetLength = config.targetLengthScale * TotalLength();
+
+        lsStepThreshold = Math.Max(config.lsStepThreshold, 1e-15f);
+        energyThreshold = config.energyThreshold;
 
         InitConstraints(config.constraints);
         InitPotentials(config.potentials);
@@ -405,7 +412,8 @@ public class EnergyCurve : Curve
         normZero = soboDot < float.NegativeInfinity;//1e-4f; Never true
 
         Debug.Log("Step duration: " + DurationString());
-        return Tuple.Create(stepSize > lsStepThreshold, true);
+        Debug.Log("Step size: " + stepSize);
+        return Tuple.Create(stepSize > lsStepThreshold && Math.Abs(energy2 - energy1) > energyThreshold, true);
     }
 
     /// <summary>
@@ -845,7 +853,7 @@ public class EnergyCurve : Curve
             }
 
 
-            Debug.Log(getAvgAngle());
+            Debug.Log(getAvgAngle()); 
 
             float rotAngle = -getAvgAngle();
 
@@ -876,9 +884,9 @@ public class EnergyCurve : Curve
 
     public void S_SerializeObstaclePositions()
     {
-        s_obstacles = new();
+        s_obstacles = new(); 
         foreach (var obs in obstacles)
-            s_obstacles.Add(new S_ObstacleConfig { p_exp = obs.p_exp, weight = obs.weight, numPoints = obs.numPoints, radius = obs.radius, center = obs.center });
+            s_obstacles.Add(new S_ObstacleConfig{ p_exp = obs.p_exp, weight = obs.weight, numPoints = obs.numPoints, radius = obs.radius, center = obs.center });
     }
 
     public void S_TryInitConstraints()
@@ -914,6 +922,8 @@ public class EnergyCurve_EditorConfig // ToDo: Outsource deacObsAfterScaling, ob
     public bool deacObsAfterScaling;
     public bool rotateAfterScaling;
     public bool noRepulsionAfterScaling;
+    public float lsStepThreshold;
+    public float energyThreshold;
     public GenModeConfig genModeConfig;
     public List<ObstacleConfig> obstacles;
     public int numObstacles;
@@ -935,13 +945,15 @@ public class EnergyCurve_EditorConfig // ToDo: Outsource deacObsAfterScaling, ob
     /// Needed for when obstacles should be overriden
     /// </param>
     /// <param name="constraints"></param>
-    public EnergyCurve_EditorConfig(bool curveClosed, float targetLengthScale, bool deacObsAfterScaling, bool rotateAfterScaling, bool noRepulsionAfterScaling, GenModeConfig genModeConfig, List<ObstacleConfig> obstacles, int numObstacles, List<PotentialConfig> potentials, List<ConstraintType> constraints)
+    public EnergyCurve_EditorConfig(bool curveClosed, float targetLengthScale, bool deacObsAfterScaling, bool rotateAfterScaling, bool noRepulsionAfterScaling, float lsStepThreshold, float energyThreshold, GenModeConfig genModeConfig, List<ObstacleConfig> obstacles, int numObstacles, List<PotentialConfig> potentials, List<ConstraintType> constraints)
     {
         this.curveClosed = curveClosed;
         this.targetLengthScale = targetLengthScale;
         this.deacObsAfterScaling = deacObsAfterScaling;
         this.rotateAfterScaling = rotateAfterScaling;
         this.noRepulsionAfterScaling = noRepulsionAfterScaling;
+        this.lsStepThreshold = lsStepThreshold;
+        this.energyThreshold = energyThreshold;
         this.genModeConfig = genModeConfig;
         this.obstacles = obstacles;
         this.numObstacles = numObstacles;

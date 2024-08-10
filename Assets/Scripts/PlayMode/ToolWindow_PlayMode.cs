@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ToolWindow : MonoBehaviour
+public class ToolWindow_PlayMode : MonoBehaviour
 {
     GUIStyle style_Label;
 

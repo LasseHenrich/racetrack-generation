@@ -32,6 +32,10 @@ public class VectorFieldPotential : Potential
     {
     }
 
+    // This function calculates the gradient for an EDGE,
+    // and therefore TWO Vertices. However, the calculations
+    // could be handled VERTEX-INDEPENDENT, with a
+    // TWO-DIMENSIONAL Gradient instead.
     public override void AddGradient(Matrix<float> gradient)
     {
         int numEdges = curve.NumEdges();
