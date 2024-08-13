@@ -1,7 +1,10 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using static Codice.CM.WorkspaceServer.WorkspaceTreeDataStore;
 
 public class ToolWindow : EditorWindow
 {
@@ -10,60 +13,47 @@ public class ToolWindow : EditorWindow
     Vector2 scrollPos;
 
     GUIStyle style_Section;
-    GUIStyle style_SubSection;
-    GUIStyle style_SubSubSection;
     GUIStyle style_Label;
+
+    Dictionary<int, bool> foldouts;
 
     // Start is called before the first frame update
     protected virtual void OnEnable()
     {
-
         Debug.Log("OnEnable");
+        foldouts = new();
     }
 
     protected virtual void OnGUI()
     {
-        style_Section = new GUIStyle(EditorStyles.boldLabel)
+        style_Section = new GUIStyle(EditorStyles.foldout)
         {
-            fontSize = 24,
-            fixedHeight = 42
-        };
-
-        style_SubSection = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 20,
-            fixedHeight = 36
-        };
-
-        style_SubSubSection = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 16,
-            fixedHeight = 30
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft,
+            padding = new RectOffset(15, 0, 0, 0),
         };
 
         style_Label = new GUIStyle(EditorStyles.label);
 
         GUILayout.BeginVertical();
+        GUILayout.Space(10);
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-
-        CreateSection(ToolLabel);
     }
 
     #region GUI Methods
 
-    protected void CreateSection(string name)
+    protected void CreateSection(string name, Action content)
     {
-      
-        GUILayout.Label(name, style_Section);
+        CreateFoldout(name, content, 24, 8);
     }
-    protected void CreateSubSection(string name)
+    protected void CreateSubSection(string name, Action content)
     {
-        GUILayout.Label(name, style_SubSection);
+        CreateFoldout(name, content, 20, 6);
     }
 
-    protected void CreateSubSubSection(string name)
+    protected void CreateSubSubSection(string name, Action content)
     {
-        GUILayout.Label(name, style_SubSubSection);
+        CreateFoldout(name, content, 16, 4);
     }
 
     protected void CreateLabel(string name)
@@ -141,10 +131,34 @@ public class ToolWindow : EditorWindow
         curve = EditorGUILayout.CurveField(name, curve);
     }
 
-    protected void CreateFoldout(string name, ref bool foldout)
+    protected void CreateFoldout(string name, Action content, int fontSize, int bottomSpacing)
     {
-        Rect position = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
-        foldout = EditorGUI.Foldout(position, foldout, name);
+        int foldoutHash = content.GetHashCode();
+
+        GUIStyle style = new(style_Section) { fontSize = fontSize };
+
+        foldouts[foldoutHash] = EditorGUILayout.Foldout(
+            foldout: foldouts.ContainsKey(foldoutHash) && foldouts[foldoutHash],
+            content: name,
+            toggleOnLabelClick: true,
+            style: style
+        );
+
+        if (foldouts[foldoutHash])
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10);
+
+            GUILayout.BeginVertical();
+            GUILayout.Space(bottomSpacing);
+
+            content();
+
+            GUILayout.Space(bottomSpacing); // 2. Additional spacing under last element
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+        }
+        GUILayout.Space(bottomSpacing); // 1. Default bottom spacing when collapsed
     }
 
     #endregion

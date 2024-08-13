@@ -221,231 +221,273 @@ public class MapGenTool : ToolWindow
     {
         base.OnGUI();
 
-        #region Drawing
-
-        CreateSubSection("Curve Generation");
-
-        #region GUI
-        CreateSubSubSection("GUI");
-        CreateCheckbox("Show Bezier", ref showBezier);
-        CreateCheckbox("Show Bezier Handles", ref showBezierHandles);
-        CreateCheckbox("Show Poly Line", ref showPolyLine);
-        CreateCheckbox("Show Poly Points", ref showPolyPoints);
-        CreateCheckbox("Show Obstacles", ref showObstacles);
-        #endregion
-
-        #region Polyline
-        CreateSubSubSection("Polyline");
-        genMode = (GenMode)EditorGUILayout.EnumPopup("Gen Mode", genMode);
-        CreateCheckbox("Closed Curve", ref curveClosed);
-
-        #region GenModeConfig
-        if (genMode == GenMode.Bezier)
-        {
-            if (genModeConfig is not GenModeConfig_Bezier) genModeConfig = new GenModeConfig_Bezier();
-            CreateSlider(ref ((GenModeConfig_Bezier)genModeConfig).numPoints, "Spline Points", 3, 10);
-            CreateSliderFloat(ref ((GenModeConfig_Bezier)genModeConfig).radius, "Radius", 1, 20);
-            CreateSliderFloat(ref ((GenModeConfig_Bezier)genModeConfig).spacing, "Spacing", 0.2f, 2f);
-        }
-        else if (genMode == GenMode.Circular)
-        {
-            if (genModeConfig is not GenModeConfig_Circular) genModeConfig = new GenModeConfig_Circular();
-            CreateSlider(ref ((GenModeConfig_Circular)genModeConfig).numPoints, "Points", 10, 100);
-            CreateSliderFloat(ref ((GenModeConfig_Circular)genModeConfig).radius, "Radius", 1, 20);
-        }
-        #endregion
-
-        #region Obstacles
-
-        CreateLabel("");
-        CreateLabel("Obstacles");
-
-        CreateSlider(ref numObstacles, "Obstacles", 0, 20);
-        CreateCheckbox("Override Obstacles", ref overrideObstacles);
-
-        if (overrideObstacles)
+        #region Advanced
+        CreateSection("Advanced", () =>
         {
 
-            EditorGUIUtility.labelWidth = 50;
-            EditorGUIUtility.fieldWidth = 20;
-            for (int i = 0; i < numObstacles; i++)
+
+            #region Curve Generation
+            CreateSubSection("Curve Generation", () =>
             {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Obstacle " + (i + 1));
 
-                if (i >= obstacleList.Count) obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector2.zero));
+                #region GUI
+                CreateSubSubSection("GUI", () =>
+                {
+                    CreateCheckbox("Show Bezier", ref showBezier);
+                    CreateCheckbox("Show Bezier Handles", ref showBezierHandles);
+                    CreateCheckbox("Show Poly Line", ref showPolyLine);
+                    CreateCheckbox("Show Poly Points", ref showPolyPoints);
+                    CreateCheckbox("Show Obstacles", ref showObstacles);
+                });
+                #endregion
 
-                ObstacleConfig obs = obstacleList[i];
+                #region Polyline
+                CreateSubSubSection("Polyline", () =>
+                {
 
-                CreateFloatField("Weight", ref obs.weight);
-                CreateIntField("Points", ref obs.numPoints);
-                CreateFloatField("Radius", ref obs.radius);
-                CreateVector2Field("Center", ref obs.center);
+                    genMode = (GenMode)EditorGUILayout.EnumPopup("Gen Mode", genMode);
+                    CreateCheckbox("Closed Curve", ref curveClosed);
 
-                GUILayout.EndHorizontal();
-            }
+                    #region GenModeConfig
+                    if (genMode == GenMode.Bezier)
+                    {
+                        if (genModeConfig is not GenModeConfig_Bezier) genModeConfig = new GenModeConfig_Bezier();
+                        CreateSlider(ref ((GenModeConfig_Bezier)genModeConfig).numPoints, "Spline Points", 3, 10);
+                        CreateSliderFloat(ref ((GenModeConfig_Bezier)genModeConfig).radius, "Radius", 1, 20);
+                        CreateSliderFloat(ref ((GenModeConfig_Bezier)genModeConfig).spacing, "Spacing", 0.2f, 2f);
+                    }
+                    else if (genMode == GenMode.Circular)
+                    {
+                        if (genModeConfig is not GenModeConfig_Circular) genModeConfig = new GenModeConfig_Circular();
+                        CreateSlider(ref ((GenModeConfig_Circular)genModeConfig).numPoints, "Points", 10, 100);
+                        CreateSliderFloat(ref ((GenModeConfig_Circular)genModeConfig).radius, "Radius", 1, 20);
+                    }
+                    #endregion
 
-            if (obstacleList.Count > numObstacles)
+                    #region Obstacles
+
+                    CreateLabel("");
+                    CreateLabel("Obstacles");
+
+                    CreateSlider(ref numObstacles, "Obstacles", 0, 20);
+                    CreateCheckbox("Override Obstacles", ref overrideObstacles);
+
+                    if (overrideObstacles)
+                    {
+
+                        EditorGUIUtility.labelWidth = 50;
+                        EditorGUIUtility.fieldWidth = 20;
+                        for (int i = 0; i < numObstacles; i++)
+                        {
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Obstacle " + (i + 1));
+
+                            if (i >= obstacleList.Count) obstacleList.Add(new(weight: 1, radius: 5, numPoints: 20, center: Vector2.zero));
+
+                            ObstacleConfig obs = obstacleList[i];
+
+                            CreateFloatField("Weight", ref obs.weight);
+                            CreateIntField("Points", ref obs.numPoints);
+                            CreateFloatField("Radius", ref obs.radius);
+                            CreateVector2Field("Center", ref obs.center);
+
+                            GUILayout.EndHorizontal();
+                        }
+
+                        if (obstacleList.Count > numObstacles)
+                        {
+                            obstacleList.RemoveRange(Mathf.Max(numObstacles - 1, 0), obstacleList.Count - numObstacles);
+                        }
+
+                        // Reset
+                        EditorGUIUtility.labelWidth = 0;
+                        EditorGUIUtility.fieldWidth = 0;
+                    }
+
+                    if (numObstacles > 0)
+                    {
+                        CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
+                    }
+
+                    #endregion
+
+                    #region Constraints
+
+                    CreateLabel("");
+                    CreateLabel("Constraints");
+                    foreach (ConstraintType c in Enum.GetValues(typeof(ConstraintType)))
+                    {
+                        if (!usingConstraint.ContainsKey(c))
+                            usingConstraint.Add(c, true);
+                        CreateCheckbox_Dict(c.ToString(), usingConstraint, c);
+                        if (c == ConstraintType.Length) CreateSliderFloat(ref lengthScale, "Target Scaled Length", 0.5f, 10f);
+                    }
+
+                    #endregion
+
+                    #region Potentials
+
+                    CreateLabel("");
+                    CreateLabel("Potentials");
+                    EditorGUIUtility.labelWidth = 50;
+                    foreach (PotentialType pType in Enum.GetValues(typeof(PotentialType)))
+                    {
+                        GUILayout.BeginHorizontal();
+
+                        if (!usingPotential.ContainsKey(pType))
+                            usingPotential.Add(pType, true);
+                        CreateCheckbox_Dict(pType.ToString(), usingPotential, pType);
+
+                        if (usingPotential[pType])
+                        {
+                            if (!potentialDict.ContainsKey(pType))
+                                potentialDict.Add(pType, new(pType, 0.1f, true));
+                            PotentialConfig pConf = potentialDict.LastOrDefault().Value;
+                            CreateFloatField("Weight", ref pConf.weight);
+                            CreateCheckbox("Delayed", ref pConf.delayed);
+                        }
+
+                        GUILayout.EndHorizontal();
+                    }
+                    // Reset
+                    EditorGUIUtility.labelWidth = 0;
+
+                    #endregion
+
+                    #region Other
+
+                    CreateLabel("");
+                    CreateLabel("Other");
+                    CreateCheckbox("Rotate after scaling", ref rotateAfterScaling);
+                    CreateCheckbox("No repulsion after scaling", ref noRepulsionAfterScaling);
+                    CreateFloatField("LS step threshold", ref lsStepThreshold);
+                    CreateFloatField("energy threshold", ref energyThreshold);
+
+                    #endregion
+
+                    #region Creation
+                    CreateButton("Create Polyline", () => GeneratePolyline());
+                    CreateButton("Reset Polyline", ResetPolyline);
+                    CreateButton("Print Polyline as 2D Arary", PrintPolyline);
+                    #endregion
+
+                    #region Repulsion
+                    CreateLabel("");
+                    CreateLabel("Repulsion");
+                    CreateCheckbox("Use Barnes Hut", ref useBarnesHut);
+                    CreateCheckbox("Use Backprojection", ref useBackproj);
+                    repulsionType = (RepulsionType)EditorGUILayout.EnumPopup("Repulsion Method", repulsionType);
+                    CreateLabel("");
+                    CreateLabel("Running");
+                    CreateButton("Single Step LS", () => RepulsionUpdate());
+                    CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
+                    CreateCheckbox("Run LS", ref runningLineSearch);
+
+                    #endregion
+
+                });
+                #endregion
+
+                #region Road Spline
+                CreateSubSubSection("Bezier Spline", () =>
+                {
+                    CreateFloatField("Epsilon", ref epsilon);
+                    CreateFloatField("Psi", ref psi);
+                    CreateButton("Generate Bezier Spline", GeneateBezierSpline);
+                    CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
+                    CreateFloatField("Fixed Part Length Multiplier", ref _fixedPartLengthMultiplier);
+                    CreateFloatField("Crossing Extra Size", ref crossingExtraSize);
+                    CreateButton("Scale curve to fit width", ScaleCurveToFitWidth);
+                    CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
+                });
+                #endregion
+            });
+            #endregion
+
+            #region Road
+            CreateSubSection("Road Object", () =>
             {
-                obstacleList.RemoveRange(Mathf.Max(numObstacles - 1, 0), obstacleList.Count - numObstacles);
-            }
+                // Note that the "name" arguments in the DoFoldout() calls also ensures
+                // the hashing in CreateSubSubSection to work correctly
 
-            // Reset
-            EditorGUIUtility.labelWidth = 0;
-            EditorGUIUtility.fieldWidth = 0;
-        }
+                CreateSubSubSection("Road Config", () =>
+                {
+                    DoFoldout("Road", RoadObjectWrapper.road);
+                });
 
-        if (numObstacles > 0)
-        {
-            CreateCheckbox("Deactivate after length scaling", ref deacObsAfterScaling);
-        }
+                CreateSubSubSection("BridgeAscent Config", () =>
+                {
+                    DoFoldout("BridgeAscent", RoadObjectWrapper.road);
+                });
 
-        #endregion
+                CreateSubSubSection("Bridge Config", () =>
+                {
+                    DoFoldout("Bridge", RoadObjectWrapper.road);
+                });
 
-        #region Constraints
+                CreateSubSubSection("BridgeDescent Config", () =>
+                {
+                    DoFoldout("BridgeDescent", RoadObjectWrapper.road);
+                });
 
-        CreateLabel("");
-        CreateLabel("Constraints");
-        foreach (ConstraintType c in Enum.GetValues(typeof(ConstraintType)))
-        {
-            if (!usingConstraint.ContainsKey(c))
-                usingConstraint.Add(c, true);
-            CreateCheckbox_Dict(c.ToString(), usingConstraint, c);
-            if (c == ConstraintType.Length) CreateSliderFloat(ref lengthScale, "Target Scaled Length", 0.5f, 10f);
-        }
+                CreateSubSubSection("Crossing Config", () =>
+                {
+                    DoFoldout("Crossing", RoadObjectWrapper.road);
+                });
 
-        #endregion
+                CreateSubSubSection("Ramp Config", () =>
+                {
+                    DoFoldout("Ramp", RoadObjectWrapper.road);
+                });
 
-        #region Potentials
+                void DoFoldout(string name, MeshTopologyEditorConfig metc)
+                {
+                    metc.mesh = (Mesh)EditorGUILayout.ObjectField(name + " Mesh", metc.mesh, typeof(Mesh), allowSceneObjects: false);
+                    CreateSlider(ref metc.numMaterials, name + " Materials", 0, 5);
+                    CreateMaterialSelection(metc.materials, metc.numMaterials);
+                }
 
-        CreateLabel("");
-        CreateLabel("Potentials");
-        EditorGUIUtility.labelWidth = 50;
-        foreach (PotentialType pType in Enum.GetValues(typeof(PotentialType)))
-        {
-            GUILayout.BeginHorizontal();
+                void CreateMaterialSelection(List<Material> matList, int numMats)
+                {
+                    for (int i = 0; i < numMats; i++)
+                    {
+                        if (i >= matList.Count) matList.Add(new(Shader.Find("Specular")));
+                        matList[i] = (Material)EditorGUILayout.ObjectField("Material " + (i + 1), matList[i], typeof(Material), allowSceneObjects: false);
+                    }
 
-            if (!usingPotential.ContainsKey(pType))
-                usingPotential.Add(pType, true);
-            CreateCheckbox_Dict(pType.ToString(), usingPotential, pType);
+                    if (matList != null && matList.Count > numMats)
+                    {
+                        matList.RemoveRange(Mathf.Max(numMats - 1, 0), matList.Count - numMats);
+                    }
+                }
 
-            if (usingPotential[pType])
+                CreateFloatField("Width Multiplier", ref _widthMultiplier);
+                CreateFloatField("Height Multiplayer", ref _heightMultiplier);
+                CreateFloatField("Road Part Length", ref roadPartLength);
+                CreateFloatField("Bridge Part Length", ref bridgePartLength);
+                CreateSliderFloat(ref crossingShape, "Crossing Shape", 0f, 1f);
+                CreateCheckbox("Auto Update Road", ref autoUpdateRoad);
+                CreateButton("Generate Road", GenerateRoad);
+            });
+            #endregion
+
+            #region Operations
+            CreateSubSection("Operations", () =>
             {
-                if (!potentialDict.ContainsKey(pType))
-                    potentialDict.Add(pType, new(pType, 0.1f, true));
-                PotentialConfig pConf = potentialDict.LastOrDefault().Value;
-                CreateFloatField("Weight", ref pConf.weight);
-                CreateCheckbox("Delayed", ref pConf.delayed);
-            }
+                //CreateButton("Start Environment", StartEnvironment);
+                //CreateButton("Stop Environment", StopEnvironment);
+                CreateButton("Load Map", LoadMap);
+                CreateTextField("File Name", ref mapObjectName);
+                CreateButton("Save Map", SaveMap);
+                CreateButton("Export Prefab", ExportPrefab);
+            });
+            #endregion
 
-            GUILayout.EndHorizontal();
-        }
-        // Reset
-        EditorGUIUtility.labelWidth = 0;
-
+        });
         #endregion
-
-        #region Other
-
-        CreateLabel("");
-        CreateLabel("Other");
-        CreateCheckbox("Rotate after scaling", ref rotateAfterScaling);
-        CreateCheckbox("No repulsion after scaling", ref noRepulsionAfterScaling);
-        CreateFloatField("LS step threshold", ref lsStepThreshold);
-        CreateFloatField("energy threshold", ref energyThreshold);
-
-        #endregion
-
-        #region Creation
-        CreateButton("Create Polyline", () => GeneratePolyline());
-        CreateButton("Reset Polyline", ResetPolyline);
-        CreateButton("Print Polyline as 2D Arary", PrintPolyline);
-        #endregion
-
-        #region Repulsion
-        CreateLabel("");
-        CreateLabel("Repulsion");
-        CreateCheckbox("Use Barnes Hut", ref useBarnesHut);
-        CreateCheckbox("Use Backprojection", ref useBackproj);
-        repulsionType = (RepulsionType)EditorGUILayout.EnumPopup("Repulsion Method", repulsionType);
-        CreateLabel("");
-        CreateLabel("Running");
-        CreateButton("Single Step LS", () => RepulsionUpdate());
-        CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
-        CreateCheckbox("Run LS", ref runningLineSearch);
-
-        #endregion
-
-        #endregion
-
-        #region Road Spline
-        CreateSubSubSection("Bezier Spline");
-        CreateFloatField("Epsilon", ref epsilon);
-        CreateFloatField("Psi", ref psi);
-        CreateButton("Generate Bezier Spline", GeneateBezierSpline);
-        CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
-        CreateFloatField("Fixed Part Length Multiplier", ref _fixedPartLengthMultiplier);
-        CreateFloatField("Crossing Extra Size", ref crossingExtraSize);
-        CreateButton("Scale curve to fit width", ScaleCurveToFitWidth);
-        CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
-        #endregion
-
-        #region Road
-
-        CreateSubSection("Road Object");
-        DoFoldout("Road", RoadObjectWrapper.road);
-        DoFoldout("BridgeAscent", RoadObjectWrapper.bridgeAscent);
-        DoFoldout("Bridge", RoadObjectWrapper.bridge);
-        DoFoldout("BridgeDescent", RoadObjectWrapper.bridgeDescent);
-        DoFoldout("Crossing", RoadObjectWrapper.crossing);
-        DoFoldout("Ramp", RoadObjectWrapper.ramp);
-
-        void DoFoldout(string name, MeshTopologyEditorConfig metc)
-        {
-            CreateFoldout(name + " Config", ref metc.showFoldout);
-            if (metc.showFoldout)
-            {
-                metc.mesh = (Mesh)EditorGUILayout.ObjectField(name + " Mesh", metc.mesh, typeof(Mesh), allowSceneObjects: false);
-                CreateSlider(ref metc.numMaterials, name + " Materials", 0, 5);
-                CreateMaterialSelection(metc.materials, metc.numMaterials);
-            }
-        }
-
-        void CreateMaterialSelection(List<Material> matList, int numMats)
-        {
-            for (int i = 0; i < numMats; i++)
-            {
-                if (i >= matList.Count) matList.Add(new(Shader.Find("Specular")));
-                matList[i] = (Material)EditorGUILayout.ObjectField("Material " + (i + 1), matList[i], typeof(Material), allowSceneObjects: false);
-            }
-
-            if (matList != null && matList.Count > numMats)
-            {
-                matList.RemoveRange(Mathf.Max(numMats - 1, 0), matList.Count - numMats);
-            }
-        }
-
-        CreateFloatField("Width Multiplier", ref _widthMultiplier);
-        CreateFloatField("Height Multiplayer", ref _heightMultiplier);
-        CreateFloatField("Road Part Length", ref roadPartLength);
-        CreateFloatField("Bridge Part Length", ref bridgePartLength);
-        CreateSliderFloat(ref crossingShape, "Crossing Shape", 0f, 1f);
-        CreateCheckbox("Auto Update Road", ref autoUpdateRoad);
-        CreateButton("Generate Road", GenerateRoad);
-        #endregion
-
-        CreateSubSection("Operations");
-        //CreateButton("Start Environment", StartEnvironment);
-        //CreateButton("Stop Environment", StopEnvironment);
-        CreateButton("Load Map", LoadMap);
-        CreateTextField("File Name", ref mapObjectName);
-        CreateButton("Save Map", SaveMap);
-        CreateButton("Export Prefab", ExportPrefab);
 
         EditorGUILayout.EndScrollView();
         GUILayout.EndVertical();
-
-        #endregion
 
         UpdateTopologyHandler();
     }
@@ -453,14 +495,14 @@ public class MapGenTool : ToolWindow
     private void UpdateTopologyHandler()
     {
         TopologyHandler.OnUpdateProperties(
-                    roadPartLength: roadPartLength,
-                    roadPartWidth: RoadPartWidth(),
-                    bridgeAscentLength: BridgeAscentLength(),
-                    bridgeDescentLength: BridgeDescentLength(),
-                    crossingExtraSize: crossingExtraSize,
-                    rampLength: RampLength(),
-                    roadSpline: roadSpline
-                );
+            roadPartLength: roadPartLength,
+            roadPartWidth: RoadPartWidth(),
+            bridgeAscentLength: BridgeAscentLength(),
+            bridgeDescentLength: BridgeDescentLength(),
+            crossingExtraSize: crossingExtraSize,
+            rampLength: RampLength(),
+            roadSpline: roadSpline
+        );
     }
 
     void MyUpdate(SceneView sceneView)
