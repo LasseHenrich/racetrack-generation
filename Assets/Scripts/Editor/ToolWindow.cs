@@ -44,21 +44,22 @@ public class ToolWindow : EditorWindow
 
     protected void CreateSection(string name, Action content)
     {
-        CreateFoldout(name, content, 24, 8);
-    }
-    protected void CreateSubSection(string name, Action content)
-    {
         CreateFoldout(name, content, 20, 6);
     }
-
-    protected void CreateSubSubSection(string name, Action content)
+    protected void CreateSubSection(string name, Action content)
     {
         CreateFoldout(name, content, 16, 4);
     }
 
-    protected void CreateLabel(string name)
+    protected void CreateSubSubSection(string name, Action content)
     {
-        GUILayout.Label(name, style_Label);
+        CreateFoldout(name, content, 14, 3);
+    }
+
+    protected void CreateLabel(string name, int fontSize = 12)
+    {
+        GUIStyle style = new(style_Label) { fontSize = fontSize };
+        GUILayout.Label(name, style);
     }
 
     protected void CreateTextField(string name, ref string input)

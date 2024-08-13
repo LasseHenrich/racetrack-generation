@@ -221,10 +221,42 @@ public class MapGenTool : ToolWindow
     {
         base.OnGUI();
 
+        #region Manual Steps
+        CreateSection("Manual Steps", () =>
+        {
+            CreateLabel("Shape Generation", 16);
+            CreateButton("Create Polyline", () => GeneratePolyline());
+            CreateButton("Reset Polyline", ResetPolyline);
+            CreateButton("Single Step", () => RepulsionUpdate());
+            CreateButton("Ten Steps", () => RepulsionUpdate(10));
+            CreateCheckbox("Run Shape Generation automatically", ref runningLineSearch);
+
+            GUILayout.Space(5);
+
+            CreateLabel("Spline", 16);
+            CreateButton("Generate Bezier Spline", GeneateBezierSpline);
+            CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
+
+            GUILayout.Space(5);
+
+            CreateLabel("Mesh Generation", 16);
+            CreateButton("Scale Spline to fit Width", ScaleCurveToFitWidth);
+            CreateButton("Calculate Features along Spline", () => TopologyHandler.GenerateTopologies());
+            CreateButton("Generate Road", GenerateRoad);
+
+            GUILayout.Space(5);
+
+            CreateLabel("Saving", 16);
+            CreateTextField("File Name", ref mapObjectName);
+            CreateButton("Save Map", SaveMap);
+        });
+        #endregion
+
+        GUILayout.Space(10);
+
         #region Advanced
         CreateSection("Advanced", () =>
         {
-
 
             #region Curve Generation
             CreateSubSection("Curve Generation", () =>
