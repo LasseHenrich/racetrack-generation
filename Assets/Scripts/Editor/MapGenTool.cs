@@ -164,7 +164,7 @@ public class MapGenTool : ToolWindow
     float WidthMultiplier { get { return _widthMultiplier * 1000; } }
     float _heightMultiplier = 1f;
     float HeightMultiplier { get { return _heightMultiplier * 1000; } }
-    float crossingShape = 0.5f;
+    float crossingShape = 0.552f;
 
     bool autoUpdateRoad = true;
 
