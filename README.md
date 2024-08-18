@@ -1,6 +1,8 @@
 # Racetrack generation (WIP)
 Based on my paper "Generating Race Tracks With Repulsive Curves" (soon to be published)
 
+![overview_borders](https://github.com/user-attachments/assets/6e707ff1-99c5-46be-9a43-141380418ab5)
+
 ## Notes
 1. The project is still heavily under construction. Feel free to play around with it, but don't expect a polished user interface. Unexpected issues are expected.
 2. There is no possibility yet to automatically generate a track from end to end.
