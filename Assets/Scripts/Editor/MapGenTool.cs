@@ -109,7 +109,6 @@ public class MapGenTool : ToolWindow
     const int subdivideLimit = 2;
 
     List<CurveVertex> PolyPoints { get { return curve.verts; } }
-    Spline InitialSpline { get { return curve != null ? curve.spline : GeneratePolyline().spline; } }
 
     EnergyCurve curve
     {
@@ -182,8 +181,16 @@ public class MapGenTool : ToolWindow
 
         SceneView.duringSceneGui += MyUpdate;
 
-        curve.TryInitVertsEdgesFromSerialized(); 
-        curve.S_TryInitObstacles();
+        try {
+            curve.TryInitVertsEdgesFromSerialized(); 
+            curve.S_TryInitObstacles();
+        }
+        catch(Exception)
+        {
+            Debug.Log("No curve found, generating...");
+            GeneratePolyline();
+            Debug.Log("Curve generated");
+        }
     }
 
     /// <summary>
@@ -249,6 +256,7 @@ public class MapGenTool : ToolWindow
             CreateLabel("Saving", 16);
             CreateTextField("File Name", ref mapObjectName);
             CreateButton("Save Map", SaveMap);
+            CreateButton("Export Prefab", ExportPrefab);
         });
         #endregion
 
@@ -544,7 +552,16 @@ public class MapGenTool : ToolWindow
             RepulsionUpdate();
         }
 
-        Draw();
+        try
+        {
+            Draw();
+        }
+        catch (Exception)
+        {
+            Debug.Log("No curve found, generating...");
+            GeneratePolyline();
+            Debug.Log("Curve generated");
+        }
 
         curve.SerializeVertsEdgesPositions();
         curve.S_SerializeObstaclePositions();
@@ -573,13 +590,6 @@ public class MapGenTool : ToolWindow
         #endregion
 
         #region Polyline
-
-        #region Initial Spline
-        if (InitialSpline != null && showBezier)
-        {
-            //DrawSpline(InitialSpline);
-        }
-        #endregion
 
         #region Polyline
         if (PolyPoints != null)

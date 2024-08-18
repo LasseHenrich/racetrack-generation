@@ -138,6 +138,13 @@ public class ToolWindow : EditorWindow
 
         GUIStyle style = new(style_Section) { fontSize = fontSize };
 
+        bool initialization = false;
+        if (!foldouts.ContainsKey(foldoutHash))
+        {
+            initialization = true;
+            foldouts.Add(foldoutHash, true); // Initially everything must be folded out, as otherwise some initializations fail
+        }
+
         foldouts[foldoutHash] = EditorGUILayout.Foldout(
             foldout: foldouts.ContainsKey(foldoutHash) && foldouts[foldoutHash],
             content: name,
@@ -160,6 +167,11 @@ public class ToolWindow : EditorWindow
             GUILayout.EndHorizontal();
         }
         GUILayout.Space(bottomSpacing); // 1. Default bottom spacing when collapsed
+
+        if (initialization)
+        {
+            foldouts[foldoutHash] = false;
+        }
     }
 
     #endregion
