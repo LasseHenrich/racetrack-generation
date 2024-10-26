@@ -6,7 +6,7 @@ Based on our paper "Generating Race Tracks With Repulsive Curves" https://ieeexp
 ## Notes
 1. The project is still in prototyping phase. Feel free to play around with it, but don't expect a polished user interface. Unexpected issues are expected.
 2. There is no possibility yet to automatically generate a track from start to finish.
-3. The lack of quality control in the intersection introduction can fuck up tracks.
+3. The lack of quality control in the intersection introduction can mess up tracks.
 You can use the "Generate Bezier Spline" button anytime to revert to the initial spline with no intersectinos.
 4. The generation process works in the Scene view, and only while the scene is redrawn.
 To force Unity to constantly redraw the scene, switch to the "View Tool" (hand icon) and place your cursor inside the Scene view.
