@@ -332,14 +332,240 @@ public class RoadSpline : Spline
     {
         float spacing = 0.2f;
         List<Vector2> points = CalculateEvenlySpacedPoints(spacing, out List<int> indicesOfSegments);
-        List<Vector2> tangents = GetTangents(points);
 
+        List<CrossingCandidate> candidates = AssembleCrossingCandidates(points, spacing);
+
+        if (candidates.Count == 0)
+            Debug.Log("Didn't find any candidates.");
+        else Debug.Log("Number of candidates: " + candidates.Count);
+
+        //string output = "";
+        //candidates.ForEach(c => output += (points[c.i.index] + " to " + points[c.j.index]) + "\n");
+        //Debug.Log(output);
+
+        List<CrossingCandidatePair> candidatePairs = AssembleCandidatePairs(preferredDistance, points, indicesOfSegments, candidates);
+
+        var newRoadSpline = this;
+
+        if (candidatePairs.Count > 0)
+        {
+            var ccp = candidatePairs.OrderBy(x => x.badness).First();
+            //Debug.Log("Min badness: " + ccp.badness);
+            controls = new(this, ccp.spline.controls.GetList());
+            CalculateAllPointsInSegments();
+            CalculateAllSegmentLengths(); // THOSE ARE NECESSARY, the one in the constructor doesn't seem to work [2023-03-26]
+        }
+        else
+        {
+            Debug.LogWarning("No candidate pairs found.");
+        }
+    }
+
+    private List<CrossingCandidatePair> AssembleCandidatePairs(float preferredDistance, List<Vector2> points, List<int> indicesOfSegments, List<CrossingCandidate> candidates)
+    {
+        List<CrossingCandidatePair> candidatePairs = new();
+
+        for (int c1 = 0; c1 < candidates.Count; c1++)
+        {
+            for (int c2 = c1 + 1; c2 < candidates.Count; c2++)
+            {
+                var cc1 = candidates[c1];
+                var cc2 = candidates[c2];
+
+                //Debug.Log("Testing New pair: " + cc1.i + ", " + cc1.j + ", " + cc2.i + ", " + cc2.j
+                //    + " with points " + points[cc1.i.index] + ", " + points[cc1.j.index] + ", " + points[cc2.i.index] + ", " + points[cc2.j.index]);
+
+                List<CrossingOpeningPoint> sortCOPs = new() { cc1.i, cc1.j, cc2.i, cc2.j }; // Sorted CrossingOpeningPoints
+                sortCOPs.Sort();
+
+                if (!((sortCOPs[0] == cc1.i || sortCOPs[0] == cc1.j) && (sortCOPs[3] == cc1.i || sortCOPs[3] == cc1.j)) &&    // not 1221
+                    !((sortCOPs[0] == cc2.i || sortCOPs[0] == cc2.j) && (sortCOPs[3] == cc2.i || sortCOPs[3] == cc2.j)) &&    // not 2112
+                    !((sortCOPs[0] == cc1.i || sortCOPs[0] == cc1.j) && (sortCOPs[1] == cc1.i || sortCOPs[1] == cc1.j)) &&    // not 1122
+                    !((sortCOPs[0] == cc2.i || sortCOPs[0] == cc2.j) && (sortCOPs[1] == cc2.i || sortCOPs[1] == cc2.j)))      // not 2211
+                {
+                    //Debug.Log("Pair-elements are ordered the right way (1212 or 2121)");
+
+                    if (sortCOPs[0].forward != sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward == sortCOPs[3].forward)  // fbbf or bffb
+                                                                                                                                                                 //|| (sortCOPs[0].forward == sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward != sortCOPs[3].forward))   // ffbb or bbff
+                    {
+                        //Debug.Log("Pair-elementts are matchable (fbbf or bffb");//, ffbb or bbff)");
+
+                        var (c1_t, c2_t) = MyMath.Intersection(points, cc1.i.index, cc1.j.index, cc2.i.index, cc2.j.index); // Use different method signature, as tangent my not be pointing towards other point but rather away from it
+
+                        // Do segments overlap?
+                        if (c1_t >= 0 && c1_t <= 1 && c2_t >= 0 && c2_t <= 1)
+                        {
+                            //Debug.Log("Pair-elements overlap");
+
+                            RoadSpline splineCandidate = GenerateIntersectingSplineCandidate(points, indicesOfSegments, sortCOPs);
+
+                            // How they overlap -> how well would a crossing be
+                            (bool acceptable, float badness) = QualifyIntersectingSplineCandidate(preferredDistance, points, cc1, cc2, splineCandidate);
+
+                            //Debug.Log("Badness: " + badness);
+
+                            candidatePairs.Add(new(badness, splineCandidate));
+                        }
+                    }
+                }
+            }
+        }
+
+        return candidatePairs;
+    }
+
+    /// <returns><acceptable, badness</returns>
+    private Tuple<bool, float> QualifyIntersectingSplineCandidate(float preferredDistance, List<Vector2> points, CrossingCandidate cc1, CrossingCandidate cc2, RoadSpline splineCandidate)
+    {
+        // ToDo: Return false as first element if outside of certain bounds
+
+        float badness = 0;
+        float sqrPreferredDistance = preferredDistance * preferredDistance;
+        badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc1.i.index] - points[cc1.j.index]) - sqrPreferredDistance); // Impact of distance of cc1.i and cc1.j -> The closer the better
+        badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc2.i.index] - points[cc2.j.index]) - sqrPreferredDistance); // Impact of distance of cc2.i and cc2.j -> The closer the better
+        badness += Mathf.Abs(TotalLength - splineCandidate.TotalLength); // Length of curve should not become much smaller -> We don't wanna lose much information / turns
+        var a_tangent = points[cc1.i.index] - points[cc1.j.index];
+        var b_tangent = points[cc2.i.index] - points[cc2.j.index];
+        float angle = Vector2.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
+        if (angle > Mathf.PI * 0.5f)
+            angle = Mathf.PI - angle;                                       // [0, Mathf.PI * 0.5f)
+        float invAngle = Mathf.PI * 0.5f - angle;                           // Inversed
+        float tanInvAngle = Mathf.Tan(invAngle);
+        badness += tanInvAngle * 50;
+
+        return Tuple.Create(true, badness);
+    }
+
+    private RoadSpline GenerateIntersectingSplineCandidate(List<Vector2> points, List<int> indicesOfSegments, List<CrossingOpeningPoint> sortCOPs)
+    {
+        var splineCandidate = DeepCopy();
+        List<int> c_indicesOfSegments = new(indicesOfSegments);
+
+        // 1. Split Segments at cops, so that cops are anchors
+        List<int> copAnchorIndices = new();
+        int copIndex = 0;
+        CrossingOpeningPoint cop = sortCOPs[copIndex];
+
+        for (int segIndex = 0; segIndex < splineCandidate.NumSegments; segIndex++)
+        {
+            // Is point in previous segment?
+            if (segIndex == splineCandidate.NumSegments - 1 || cop.index < c_indicesOfSegments[segIndex + 1]) // Subtract copAnchorIndices.Count, as we added copAnchorIndices.Count new segments with SplitSegment
+            {
+                int pointsInSeg = (segIndex < splineCandidate.NumSegments - 1 ? c_indicesOfSegments[segIndex + 1] : points.Count) - c_indicesOfSegments[segIndex];
+                float tInSeg = (cop.index - c_indicesOfSegments[segIndex]) / (float)pointsInSeg;
+                splineCandidate.SplitSegment(points[cop.index], segIndex, tInSeg: tInSeg); // We have copAnchorIndices.Count segments more through previous splits
+                                                                                           //Debug.Log("new cop " + points[cop.index] + " in seg " + segIndex);
+                                                                                           //Debug.Log("tInSeg: " + tInSeg);
+                copAnchorIndices.Add(segIndex * 3 + 3);
+
+                c_indicesOfSegments.Insert(segIndex + 1, cop.index);
+                copIndex++;
+                if (copIndex == sortCOPs.Count)
+                    break;
+                cop = sortCOPs[copIndex];
+            }
+        }
+
+        // 2. Create new control-List
+        // Note: Origin is points[0], End is points[^1]. If you " + 1 + 1" it means: +1 for Index->Count and +1 for next control point
+        List<Vector2> newControls = new();
+        if (sortCOPs[0].forward != sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward == sortCOPs[3].forward)  // fbbf or bffb
+        {
+            if (!sortCOPs[0].forward && sortCOPs[1].forward && sortCOPs[2].forward && !sortCOPs[3].forward) // bffb
+            {
+                /*
+                 * 1 to 0, 0 to 2, 2 to 3, 3 to 1
+                 */
+                //Debug.Log("bffb");
+
+                Tuple<int, int> cop1To0 = new(
+                    copAnchorIndices[0],
+                    (copAnchorIndices[1] - copAnchorIndices[0]) + 1 // Must start with anchor
+                );
+                AddControlRange(cop1To0, true);
+
+                Tuple<int, int> copBefore0 = new(
+                    LoopIndex(copAnchorIndices[0] - 1),
+                    1
+                );
+                AddControlRange(copBefore0, false);
+
+                Tuple<int, int> cop2To3 = new(
+                    copAnchorIndices[2] - 1,
+                    (copAnchorIndices[3] - (copAnchorIndices[2] - 1)) + 1 + 1
+                );
+                AddControlRange(cop2To3, false);
+
+                Tuple<int, int> copAfter1 = new(
+                    copAnchorIndices[1] + 1,
+                    1
+                );
+                AddControlRange(copAfter1, false);
+            }
+            else if (sortCOPs[0].forward && !sortCOPs[1].forward && !sortCOPs[2].forward && sortCOPs[3].forward) // fbbf
+            {
+                /*
+                 * 0 to Origin, Origin to End, End to 3, 3 to 1, 1 to 2, 2 to 0
+                 */
+                //Debug.Log("fbbf");
+
+                Tuple<int, int> cop0ToOrigin = new(
+                    0,
+                    (copAnchorIndices[0] - 0) + 1
+                );
+                AddControlRange(cop0ToOrigin, true);
+
+                Tuple<int, int> copEndTo3 = new(
+                   copAnchorIndices[3] - 1,
+                   ((splineCandidate.controls.Count - 1) - (copAnchorIndices[3] - 1)) + 1
+                );
+                AddControlRange(copEndTo3, true);
+
+                Tuple<int, int> cop1To2 = new(
+                    copAnchorIndices[1] - 1,
+                    (copAnchorIndices[2] - (copAnchorIndices[1] - 1)) + 1 + 1
+                );
+                AddControlRange(cop1To2, false);
+
+                Tuple<int, int> copAfter0 = new(
+                    copAnchorIndices[0] + 1,
+                    1
+                );
+                AddControlRange(copAfter0, false);
+            }
+            else
+            {
+                Debug.LogWarning("Case not yet covered: " + sortCOPs[0].forward + " " + sortCOPs[1].forward + " " + sortCOPs[2].forward + " " + sortCOPs[3].forward);
+            }
+        }
+        else // ffbb or bbff
+        {
+            Debug.Log("Case not yet covered. (Couldn't find a suitable sketch.)");
+            // Edit: after lots of track generations this hasn't happened yet, so likely impossible.
+        }
+
+        void AddControlRange(Tuple<int, int> startCount, bool reversed)
+        {
+            List<Vector2> toAdd = splineCandidate.controls.GetRange(startCount.Item1, startCount.Item2);
+            if (reversed) toAdd.Reverse();
+            newControls.AddRange(toAdd);
+        }
+
+        splineCandidate.controls.RemoveRange(0, splineCandidate.controls.Count);
+        splineCandidate.controls.AddRange(newControls);
+        return splineCandidate;
+    }
+
+    private List<CrossingCandidate> AssembleCrossingCandidates(List<Vector2> points, float spacing)
+    {
+        List<CrossingCandidate> candidates = new(); // <i, j, i_forward, j_forward>
+
+        List<Vector2> tangents = GetTangents(points);
         int minIndicesDist = (int)(10 / spacing);                // Minimum Distance betweeen Indices of points of one pair
         float maxTangentCrossThreshold = 0.05f; // Every Cross(tan[i],-tan[j]) below this number will be a valid candidate
         float maxDispCrossTheshold = 0.08f;     // Every Cross(unitDisp, (tan[i]+tan[j]).norm) below this number will be a valid candidate
         int skipIncidesAfterFound = 1;//(int)(1f / spacing);         // Indices to be skipped after a valid candidate was found. Note that I've also experimented with making this variable based on the change in tangent from i to i + 1. But, as spacing to small, this doesn't really have any effect.
 
-        List<CrossingCandidate> candidates = new(); // <i, j, i_forward, j_forward>
 
         for (int i = 0; i < points.Count; i++)
         {
@@ -397,266 +623,7 @@ public class RoadSpline : Spline
             }
         }
 
-        bool exitLoop = false;
-
-        if (candidates.Count == 0)
-            Debug.Log("Didn't find any candidates.");
-        else Debug.Log("Number of candidates: " + candidates.Count);
-
-        //string output = "";
-        //candidates.ForEach(c => output += (points[c.i.index] + " to " + points[c.j.index]) + "\n");
-        //Debug.Log(output);
-
-        // Can a valid, closed road 
-        List<CrossingCandidatePair> candidatePairs = new();
-        for (int c1 = 0; c1 < candidates.Count && !exitLoop; c1++)
-        {
-            for (int c2 = c1 + 1; c2 < candidates.Count && !exitLoop; c2++)
-            {
-                var cc1 = candidates[c1];
-                var cc2 = candidates[c2];
-
-                //Debug.Log("Testing New pair: " + cc1.i + ", " + cc1.j + ", " + cc2.i + ", " + cc2.j
-                //    + " with points " + points[cc1.i.index] + ", " + points[cc1.j.index] + ", " + points[cc2.i.index] + ", " + points[cc2.j.index]);
-
-                List<CrossingOpeningPoint> sortCOPs = new() { cc1.i, cc1.j, cc2.i, cc2.j }; // Sorted CrossingOpeningPoints
-                sortCOPs.Sort();
-
-                if (!((sortCOPs[0] == cc1.i || sortCOPs[0] == cc1.j) && (sortCOPs[3] == cc1.i || sortCOPs[3] == cc1.j)) &&    // not 1221
-                    !((sortCOPs[0] == cc2.i || sortCOPs[0] == cc2.j) && (sortCOPs[3] == cc2.i || sortCOPs[3] == cc2.j)) &&    // not 2112
-                    !((sortCOPs[0] == cc1.i || sortCOPs[0] == cc1.j) && (sortCOPs[1] == cc1.i || sortCOPs[1] == cc1.j)) &&    // not 1122
-                    !((sortCOPs[0] == cc2.i || sortCOPs[0] == cc2.j) && (sortCOPs[1] == cc2.i || sortCOPs[1] == cc2.j)))      // not 2211
-                {
-                    //Debug.Log("Pair-elements are ordered the right way (1212 or 2121)");
-
-                    if (sortCOPs[0].forward != sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward == sortCOPs[3].forward)  // fbbf or bffb
-                                                                                                                                                                 //|| (sortCOPs[0].forward == sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward != sortCOPs[3].forward))   // ffbb or bbff
-                    {
-                        //Debug.Log("Pair-elementts are matchable (fbbf or bffb");//, ffbb or bbff)");
-
-                        //if (sortCOPs[0].forward )
-
-                        var (c1_t, c2_t) = MyMath.Intersection(points, cc1.i.index, cc1.j.index, cc2.i.index, cc2.j.index); // Use different method signature, as tangent my not be pointing towards other point but rather away from it
-
-                        // Do segments overlap?
-                        if (c1_t >= 0 && c1_t <= 1 && c2_t >= 0 && c2_t <= 1)
-                        {
-                            //Debug.Log("Pair-elements overlap");
-
-                            // Generate Crossing Candidate
-
-                            var splineCandidate = DeepCopy();
-                            List<int> c_indicesOfSegments = new(indicesOfSegments);
-
-                            // 1. Split Segments at cops, so that cops are anchors
-                            List<int> copAnchorIndices = new();
-                            int copIndex = 0;
-                            CrossingOpeningPoint cop = sortCOPs[copIndex];
-
-                            for (int segIndex = 0; segIndex < splineCandidate.NumSegments; segIndex++)
-                            {
-                                // Is point in previous segment?
-                                if (segIndex == splineCandidate.NumSegments - 1 || cop.index < c_indicesOfSegments[segIndex + 1]) // Subtract copAnchorIndices.Count, as we added copAnchorIndices.Count new segments with SplitSegment
-                                {
-                                    int pointsInSeg = (segIndex < splineCandidate.NumSegments - 1 ? c_indicesOfSegments[segIndex + 1] : points.Count) - c_indicesOfSegments[segIndex];
-                                    float tInSeg = (cop.index - c_indicesOfSegments[segIndex]) / (float)pointsInSeg;
-                                    splineCandidate.SplitSegment(points[cop.index], segIndex, tInSeg: tInSeg); // We have copAnchorIndices.Count segments more through previous splits
-                                    //Debug.Log("new cop " + points[cop.index] + " in seg " + segIndex);
-                                    //Debug.Log("tInSeg: " + tInSeg);
-                                    copAnchorIndices.Add(segIndex * 3 + 3);
-
-                                    c_indicesOfSegments.Insert(segIndex + 1, cop.index);
-                                    copIndex++;
-                                    if (copIndex == sortCOPs.Count)
-                                        break;
-                                    cop = sortCOPs[copIndex];
-                                }
-                            }
-                            //Debug.Log("copAnchorIndices:");
-                            //copAnchorIndices.ForEach(x => Debug.Log(x));
-
-                            //Debug.Log("sortCOPs");
-                            //sortCOPs.ForEach(x => Debug.Log(points[x.index]));
-                            //Debug.Log("indices of sortCOPs");
-                            //sortCOPs.ForEach(x => Debug.Log(x.index));
-
-                            //Debug.Log(sortCOPs[0].forward + " " + sortCOPs[1].forward + " " + sortCOPs[2].forward + " " + sortCOPs[3].forward);
-
-                            // 2. Create new control-List
-                            // Note: Origin is points[0], End is points[^1]. If you " + 1 + 1" it means: +1 for Index->Count and +1 for next control point
-                            List<Vector2> newControls = new();
-                            if (sortCOPs[0].forward != sortCOPs[1].forward && sortCOPs[0].forward != sortCOPs[2].forward && sortCOPs[0].forward == sortCOPs[3].forward)  // fbbf or bffb
-                            {
-                                if (!sortCOPs[0].forward && sortCOPs[1].forward && sortCOPs[2].forward && !sortCOPs[3].forward) // bffb
-                                {
-                                    /*
-                                     * 1 to 0, 0 to 2, 2 to 3, 3 to 1
-                                     */
-                                    //Debug.Log("bffb");
-
-                                    Tuple<int, int> cop1To0 = new(
-                                        copAnchorIndices[0],
-                                        (copAnchorIndices[1] - copAnchorIndices[0]) + 1 // Must start with anchor
-                                    );
-                                    AddControlRange(cop1To0, true);
-
-                                    Tuple<int, int> copBefore0 = new(
-                                        LoopIndex(copAnchorIndices[0] - 1),
-                                        1
-                                    );
-                                    AddControlRange(copBefore0, false);
-
-                                    Tuple<int, int> cop2To3 = new(
-                                        copAnchorIndices[2] - 1,
-                                        (copAnchorIndices[3] - (copAnchorIndices[2] - 1)) + 1 + 1
-                                    );
-                                    AddControlRange(cop2To3, false);
-
-                                    Tuple<int, int> copAfter1 = new(
-                                        copAnchorIndices[1] + 1,
-                                        1
-                                    );
-                                    AddControlRange(copAfter1, false);
-                                }
-                                else if (sortCOPs[0].forward && !sortCOPs[1].forward && !sortCOPs[2].forward && sortCOPs[3].forward) // fbbf
-                                {
-                                    /*
-                                     * 0 to Origin, Origin to End, End to 3, 3 to 1, 1 to 2, 2 to 0
-                                     */
-                                    //Debug.Log("fbbf");
-
-                                    Tuple<int, int> cop0ToOrigin = new(
-                                        0,
-                                        (copAnchorIndices[0] - 0) + 1
-                                    );
-                                    AddControlRange(cop0ToOrigin, true);
-
-                                    Tuple<int, int> copEndTo3 = new(
-                                       copAnchorIndices[3] - 1,
-                                       ((splineCandidate.controls.Count - 1) - (copAnchorIndices[3] - 1)) + 1
-                                    );
-                                    AddControlRange(copEndTo3, true);
-
-                                    Tuple<int, int> cop1To2 = new(
-                                        copAnchorIndices[1] - 1,
-                                        (copAnchorIndices[2] - (copAnchorIndices[1] - 1)) + 1 + 1
-                                    );
-                                    AddControlRange(cop1To2, false);
-
-                                    Tuple<int, int> copAfter0 = new(
-                                        copAnchorIndices[0] + 1,
-                                        1
-                                    );
-                                    AddControlRange(copAfter0, false);
-                                }
-                                else
-                                {
-                                    Debug.LogWarning("Case not yet covered: " + sortCOPs[0].forward + " " + sortCOPs[1].forward + " " + sortCOPs[2].forward + " " + sortCOPs[3].forward);
-                                }
-                            }
-                            else // ffbb or bbff
-                            {
-                                Debug.Log("Case not yet covered. (Couldn't find a suitable sketch.)");
-                                //if (sortCOPs[0].forward && sortCOPs[1].forward && !sortCOPs[2].forward && !sortCOPs[3].forward) // ffbb
-                                //{
-                                //    List<Vector2> cop0to1 = splineCandidate.controls.GetRange(
-                                //        copAnchorIndices[0],
-                                //        (copAnchorIndices[1] - copAnchorIndices[0]) + 1 + 1
-                                //    );
-                                //    newControls.AddRange(cop0to1);
-                                //
-                                //    List<Vector2> cop3To2 = splineCandidate.controls.GetRange(
-                                //        copAnchorIndices[2] - 1,
-                                //        (copAnchorIndices[3] - (copAnchorIndices[2] - 1)) + 1 + 1
-                                //    ); cop3To2.Reverse();
-                                //    newControls.AddRange(cop3To2);
-                                //
-                                //    newControls.Add(splineCandidate.controls[LoopIndex(copAnchorIndices[0] - 1)]); // Must be added last, as first point needs to be an anchor point
-                                //}
-                                //else if (!sortCOPs[0].forward && !sortCOPs[1].forward && sortCOPs[2].forward && sortCOPs[3].forward) // bbff
-                                //{                                   
-                                //
-                                //    /*
-                                //     * Origin to 0, 0 to 2, 2 to 1, 1 to 3, 3 to End, End to Origin
-                                //     */
-                                //    
-                                //    List<Vector2> copOriginto0 = splineCandidate.controls.GetRange(
-                                //        0,
-                                //        (copAnchorIndices[0] - 0) + 1 + 1
-                                //    );
-                                //    newControls.AddRange(copOriginto0);
-                                //
-                                //    List<Vector2> cop2To1 = splineCandidate.controls.GetRange(
-                                //        copAnchorIndices[1] - 1,
-                                //        (copAnchorIndices[2] - (copAnchorIndices[1] - 1)) + 1 + 1
-                                //    ); cop2To1.Reverse();
-                                //    newControls.AddRange(cop2To1);
-                                //
-                                //
-                                //    List<Vector2> cop3ToEnd = splineCandidate.controls.GetRange(
-                                //        copAnchorIndices[3] - 1,
-                                //        ((splineCandidate.controls.Count - 1) - (copAnchorIndices[3] - 1)) + 1
-                                //    );
-                                //    newControls.AddRange(cop3ToEnd);
-                                //    
-                                //    //newControls.Add(splineCandidate.controls[LoopIndex(copAnchorIndices[0] - 1)]);
-                                //}
-                                //else
-                                //{
-                                //    Debug.LogWarning("Case not yet covered: " + sortCOPs[0].forward + " " + sortCOPs[1].forward + " " + sortCOPs[2].forward + " " + sortCOPs[3].forward);
-                                //}
-                            }
-
-                            void AddControlRange(Tuple<int, int> startCount, bool reversed)
-                            {
-                                List<Vector2> toAdd = splineCandidate.controls.GetRange(startCount.Item1, startCount.Item2);
-                                if (reversed) toAdd.Reverse();
-                                newControls.AddRange(toAdd);
-                            }
-
-                            splineCandidate.controls.RemoveRange(0, splineCandidate.controls.Count);
-                            splineCandidate.controls.AddRange(newControls);
-
-                            // How they overlap -> how well would a crossing be
-                            float badness = 0;
-                            float sqrPreferredDistance = preferredDistance * preferredDistance;
-                            badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc1.i.index] - points[cc1.j.index]) - sqrPreferredDistance); // Impact of distance of cc1.i and cc1.j -> The closer the better
-                            badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc2.i.index] - points[cc2.j.index]) - sqrPreferredDistance); // Impact of distance of cc2.i and cc2.j -> The closer the better
-                            badness += Mathf.Abs(TotalLength - splineCandidate.TotalLength); // Length of curve should not become much smaller -> We don't wanna lose much information / turns
-                            var a_tangent = points[cc1.i.index] - points[cc1.j.index];
-                            var b_tangent = points[cc2.i.index] - points[cc2.j.index];
-                            float angle = Vector2.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
-                            if (angle > Mathf.PI * 0.5f)
-                                angle = Mathf.PI - angle;                                       // [0, Mathf.PI * 0.5f)
-                            float invAngle = Mathf.PI * 0.5f - angle;                           // Inversed
-                            float tanInvAngle = Mathf.Tan(invAngle);
-                            badness += tanInvAngle * 50;
-
-                            //Debug.Log("Badness: " + badness);
-
-                            candidatePairs.Add(new(badness, splineCandidate));
-
-                            //exitLoop = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        var newRoadSpline = this;
-
-        if (candidatePairs.Count > 0)
-        {
-            var ccp = candidatePairs.OrderBy(x => x.badness).First();
-            //Debug.Log("Min badness: " + ccp.badness);
-            controls = new(this, ccp.spline.controls.GetList());
-            CalculateAllPointsInSegments();
-            CalculateAllSegmentLengths(); // THOSE ARE NECESSARY, the one in the constructor doesn't seem to work [2023-03-26]
-        }
-        else
-        {
-            Debug.LogWarning("No candidate pairs found.");
-        }
+        return candidates;
     }
 
     /// <summary>
@@ -698,24 +665,7 @@ public class RoadSpline : Spline
     /// </summary>
     public (List<Vector2>, List<Vector2>) SplitSegment(List<Vector2> controls, float tInSeg)
     {
-        List<Vector2> newControls = new(controls);
-
-        // HERE WAS SOMETHING WRONG...
-        //Vector2 midBeforeCtrlPts = // Mid of two oiginal control points (between green and blue)
-        //    Between(1, 2);
-        //
-        //newControls[1] = // green to between red and green
-        //    Between(0, 1);
-        //newControls[2] = // blue to between yellow and blue
-        //    Between(2, 3);
-        //
-        //newControls.Insert(2, BetweenV(newControls[1], midBeforeCtrlPts));
-        //newControls.Insert(3, BetweenV(midBeforeCtrlPts, newControls[2]));
-        //
-        //newControls.Insert(3, BetweenV(newControls[2], newControls[3])); // Mid anchor point
-
-        // ...SO I WROTE THIS
-        newControls = new()
+        List<Vector2> newControls = new()
         {
             controls[0],
             Between(0, 1),
@@ -1040,13 +990,13 @@ public class RoadSpline : Spline
         return normal;
     }
 
-    #endregion
-
     public RoadSpline DeepCopy()
     {
         var copy = new RoadSpline(new(controls.GetList()), true, IsClosed);
         return copy;
     }
+
+    #endregion
 }
 
 class CrossingOpeningPoint : IComparable<CrossingOpeningPoint>

@@ -794,9 +794,7 @@ public class MapGenTool : ToolWindow
     {
         steps++; 
 
-        Tuple<bool, bool> returnedTuple = curve.ComputeLineSearchStep(repulsionType, useBarnesHut, useBackproj);
-        bool goodStep = returnedTuple.Item1;
-        bool shouldContinue = returnedTuple.Item2;
+        (bool goodStep, bool shouldContinue) = curve.ComputeLineSearchStep(repulsionType, useBarnesHut, useBackproj);
         if (!shouldContinue) runningLineSearch = false;
 
         // Only if we're actively running the simulation and not just doing a single step, because we want to be able to force more steps
