@@ -229,14 +229,27 @@ public class EnergyCurve : Curve
 
     #endregion
 
+    /// <summary>
+    /// Execute singe line search step
+    /// </summary>
+    /// <returns><goodStep, shouldContinue</returns>
+    /// <exception cref="ArgumentException">catches initialization errors</exception>
     public Tuple<bool, bool> ComputeLineSearchStep(RepulsionType repulsionType, bool useBarnesHut, bool useBackproj)
     {
-        return repulsionType switch
+        try
         {
-            RepulsionType.Normal => ComputeLineSearchStep_Normal(useBarnesHut, useBackproj),
-            RepulsionType.Sobolev => ComputeLineSearchStep_Sobolev(useBarnesHut, useBackproj),
-            _ => throw new ArgumentException("Called ComputeLineSearchStep with wrong RepulsionType"),
-        };
+            return repulsionType switch
+            {
+                RepulsionType.Normal => ComputeLineSearchStep_Normal(useBarnesHut, useBackproj),
+                RepulsionType.Sobolev => ComputeLineSearchStep_Sobolev(useBarnesHut, useBackproj),
+                _ => throw new ArgumentException("Called ComputeLineSearchStep with wrong RepulsionType"),
+            };
+        }
+        catch (NullReferenceException)
+        {
+            Debug.LogError("Something went wrong... Please make sure to reset the polyline (click \"Reset Polyline\") after re-compiling");
+            return Tuple.Create(false, false);
+        }
     }
 
     /// <summary>

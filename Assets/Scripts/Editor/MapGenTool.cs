@@ -181,15 +181,14 @@ public class MapGenTool : ToolWindow
 
         SceneView.duringSceneGui += MyUpdate;
 
-        try {
-            curve.TryInitVertsEdgesFromSerialized(); 
+        try
+        {
+            curve.TryInitVertsEdgesFromSerialized();
             curve.S_TryInitObstacles();
         }
-        catch(Exception)
+        catch (Exception)
         {
-            Debug.Log("No curve found, generating...");
-            GeneratePolyline();
-            Debug.Log("Curve generated");
+            // Wait for MyUpdate to generate polyline
         }
     }
 
@@ -203,7 +202,6 @@ public class MapGenTool : ToolWindow
 
     void InitObj()
     {
-        Debug.Log("InitObj");
         obj = GameObject.FindGameObjectWithTag("RoadObject");
         if (obj == null)
         {
@@ -547,6 +545,15 @@ public class MapGenTool : ToolWindow
 
     void MyUpdate(SceneView sceneView)
     {
+        // check if standard editor tool initializatin is done yet.
+        // note that genModeConfig can never be GenModeConfig after initialization
+        if (genModeConfig is not GenModeConfig_Bezier && genModeConfig is not GenModeConfig_Circular)
+        {
+            Debug.Log("Tool not yet initialized, retrying...");
+            OnGUI(); // OnGUI necessary to initialize some things. Only called when window is visible
+            return;
+        }
+
         if (runningLineSearch)
         {
             RepulsionUpdate();
@@ -722,12 +729,9 @@ public class MapGenTool : ToolWindow
 
     EnergyCurve GeneratePolyline()
     {
-        Debug.Log("Starting Road Generation...");
-
         ResetParameters();
 
         curve = new(Config);
-        Debug.Log("Assign");
         return curve;
     }
 

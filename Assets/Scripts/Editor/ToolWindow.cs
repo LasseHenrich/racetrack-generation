@@ -20,7 +20,6 @@ public class ToolWindow : EditorWindow
     // Start is called before the first frame update
     protected virtual void OnEnable()
     {
-        Debug.Log("OnEnable");
         foldouts = new();
     }
 
