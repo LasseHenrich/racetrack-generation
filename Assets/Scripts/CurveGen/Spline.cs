@@ -709,8 +709,15 @@ public class ObservableList<T>
         {
             myList[index] = value;
 
-            UpdatePointsInSegs();
-            UpdateSegLengths();
+            try
+            {
+                UpdatePointsInSegs();
+                UpdateSegLengths();
+            }
+            catch (ArgumentException)
+            {
+                Debug.LogWarning("Please make sure to re-generate the spline (click \"Generate Bézier Spline\") after compiling.");
+            }
         }
     }
 

@@ -19,7 +19,6 @@ public static class RoadGen
         TopologyHandler.LogTopologies(topologies);
         if (topologies == null)
         {
-            Debug.LogWarning("ERROR: Must generate topologies first.");
             return;
         }
 

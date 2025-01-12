@@ -260,6 +260,11 @@ public static class TopologyHandler
 
     public static void OnSplineChanged()
     {
+        if (intersectingPercents == null)
+        {
+            return;
+        }
+
         int intersectionCountBefore = intersectingPercents.Count;
 
         intersectingPercents = CalculateIntersectingPercents();
@@ -538,7 +543,6 @@ public static class TopologyHandler
     {
         if (topologies == null)
         {
-            Debug.LogWarning("Please first generate topologies.");
             return;
         }
 

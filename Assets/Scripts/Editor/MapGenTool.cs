@@ -563,7 +563,7 @@ public class MapGenTool : ToolWindow
         {
             Draw();
         }
-        catch (Exception)
+        catch (NullReferenceException)
         {
             Debug.Log("No curve found, generating...");
             GeneratePolyline();
@@ -654,11 +654,11 @@ public class MapGenTool : ToolWindow
         #region Bezier Spline
         if (roadSpline != null && showBezier)
         {
-            DrawSpline(roadSpline, autoUpdateRoad ? RegenerateRoad : null);
+            DrawSpline(roadSpline);
         }
         #endregion
 
-        void DrawSpline(Spline spline, Action OnUpdated = null)
+        void DrawSpline(Spline spline)
         {
             if (spline == null)
                 return;
@@ -707,9 +707,8 @@ public class MapGenTool : ToolWindow
                     {
                         Undo.RecordObject(this, "Move Path Point");
                         spline.MovePoint(i, newPos);
-                        Debug.Log("Moving ctrl/anchor point " + i);
                         if (spline == roadSpline) TopologyHandler.OnSplineChanged();
-                        if (OnUpdated != null) OnUpdated();
+                        if (autoUpdateRoad) RegenerateRoad();
                     }
                 }
             }
@@ -869,7 +868,6 @@ public class MapGenTool : ToolWindow
 
     void RegenerateRoad()
     {
-
         RoadGen.GenerateRoad_WholeParts(
             obj.transform,
             roadSpline,
