@@ -345,20 +345,32 @@ public class RoadSpline : Spline
 
         List<CrossingCandidatePair> candidatePairs = AssembleCandidatePairs(preferredDistance, points, indicesOfSegments, candidates);
 
-        var newRoadSpline = this;
-
-        if (candidatePairs.Count > 0)
+        /*
+        foreach (var ccp in candidatePairs)
         {
-            var ccp = candidatePairs.OrderBy(x => x.badness).First();
-            //Debug.Log("Min badness: " + ccp.badness);
-            controls = new(this, ccp.spline.controls.GetList());
-            CalculateAllPointsInSegments();
-            CalculateAllSegmentLengths(); // THOSE ARE NECESSARY, the one in the constructor doesn't seem to work [2023-03-26]
+            Debug.Log($"crossing: {ccp.crossingRelSizeLoss}, length: {ccp.lengthRelDiffLoss}, angle: {ccp.angleLoss}");
         }
-        else
+        */
+
+        if (candidatePairs.Count == 0)
         {
             Debug.LogWarning("No candidate pairs found.");
+            return;
         }
+
+        List<CrossingCandidatePair> acceptableCandidatePairs = candidatePairs.Where(x => x.crossingRelSizeLoss >= 0 && x.lengthRelDiffLoss >= 0 && x.angleLoss >= 0).ToList();
+
+        if (acceptableCandidatePairs.Count == 0)
+        {
+            Debug.LogWarning("No good candidate pairs found. Consider tweaking the quality control thresholds (currently only possible through the code)");
+            return;
+        }
+
+        var ccp = acceptableCandidatePairs.OrderBy(x => x.Badness).First();
+        Debug.Log($"crossing: {ccp.crossingRelSizeLoss}, length: {ccp.lengthRelDiffLoss}, angle: {ccp.angleLoss}");
+        controls = new(this, ccp.spline.controls.GetList());
+        CalculateAllPointsInSegments();
+        CalculateAllSegmentLengths(); // THOSE ARE NECESSARY, the one in the constructor doesn't seem to work [2023-03-26]
     }
 
     private List<CrossingCandidatePair> AssembleCandidatePairs(float preferredDistance, List<Vector2> points, List<int> indicesOfSegments, List<CrossingCandidate> candidates)
@@ -400,11 +412,8 @@ public class RoadSpline : Spline
                             RoadSpline splineCandidate = GenerateIntersectingSplineCandidate(points, indicesOfSegments, sortCOPs);
 
                             // How they overlap -> how well would a crossing be
-                            (bool acceptable, float badness) = QualifyIntersectingSplineCandidate(preferredDistance, points, cc1, cc2, splineCandidate);
-
-                            //Debug.Log("Badness: " + badness);
-
-                            candidatePairs.Add(new(badness, splineCandidate));
+                            Tuple<float, float, float> badnessMetrics = QualifyIntersectingSplineCandidate(preferredDistance, points, cc1, cc2, splineCandidate);
+                            candidatePairs.Add(new(badnessMetrics.Item1, badnessMetrics.Item2, badnessMetrics.Item3, splineCandidate));
                         }
                     }
                 }
@@ -414,26 +423,61 @@ public class RoadSpline : Spline
         return candidatePairs;
     }
 
-    /// <returns><acceptable, badness</returns>
-    private Tuple<bool, float> QualifyIntersectingSplineCandidate(float preferredDistance, List<Vector2> points, CrossingCandidate cc1, CrossingCandidate cc2, RoadSpline splineCandidate)
+    private Tuple<float, float, float> QualifyIntersectingSplineCandidate(float preferredDistance, List<Vector2> points, CrossingCandidate cc1, CrossingCandidate cc2, RoadSpline splineCandidate)
     {
-        // ToDo: Return false as first element if outside of certain bounds
+        const float maxCrossingRelSize = 0.3f; // Anything more than that varies too much from desired (if 0: takes away too much road), regardless of its shape
+        const float maxLengthRelDiff = 0.2f; // Losing / Adding more than that is inacceptable
+        const float minAngle = 80; // in degrees, anything less is inacceptable
 
-        float badness = 0;
-        float sqrPreferredDistance = preferredDistance * preferredDistance;
-        badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc1.i.index] - points[cc1.j.index]) - sqrPreferredDistance); // Impact of distance of cc1.i and cc1.j -> The closer the better
-        badness += Mathf.Abs(Vector2.SqrMagnitude(points[cc2.i.index] - points[cc2.j.index]) - sqrPreferredDistance); // Impact of distance of cc2.i and cc2.j -> The closer the better
-        badness += Mathf.Abs(TotalLength - splineCandidate.TotalLength); // Length of curve should not become much smaller -> We don't wanna lose much information / turns
-        var a_tangent = points[cc1.i.index] - points[cc1.j.index];
-        var b_tangent = points[cc2.i.index] - points[cc2.j.index];
-        float angle = Vector2.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
-        if (angle > Mathf.PI * 0.5f)
-            angle = Mathf.PI - angle;                                       // [0, Mathf.PI * 0.5f)
-        float invAngle = Mathf.PI * 0.5f - angle;                           // Inversed
-        float tanInvAngle = Mathf.Tan(invAngle);
-        badness += tanInvAngle * 50;
+        float quadraticLoss(float t, float max)
+        {
+            return (t * t) / (max * max - t * t);
+        }
 
-        return Tuple.Create(true, badness);
+        float quarticLoss(float t, float max)
+        {
+            return (t * t * t * t) / (max * max * max * max - t * t * t * t);
+        }
+
+
+        float getCrossingRelSizeLoss()
+        {
+            float cc1Dst = (points[cc1.i.index] - points[cc1.j.index]).magnitude; // Impact of distance of cc1.i and cc1.j -> The closer the better
+            float cc1DstRel = cc1Dst / TotalLength;
+
+            float cc2SqrdDst = (points[cc2.i.index] - points[cc2.j.index]).magnitude; // Impact of distance of cc2.i and cc2.j -> The closer the better
+            float cc2DstRel = cc2SqrdDst / TotalLength;
+
+            float dstRel = cc1DstRel + cc2DstRel;
+            float dstRelDiff = (dstRel - preferredDistance);
+
+            return quadraticLoss(dstRelDiff, maxCrossingRelSize);
+        }
+
+        float getLengthRelDiffLoss()
+        {
+            float lengthDiff = Mathf.Abs(TotalLength - splineCandidate.TotalLength); // Length of curve should not become much smaller -> We don't wanna lose much information / turns
+            float lengthDiffRel = lengthDiff / TotalLength;
+
+            return quarticLoss(lengthDiffRel, maxLengthRelDiff); // Quartic because this metric shouldn't be as punishing as the others.
+        }
+
+
+        float getAngleLoss()
+        {
+            const float maxAngleDiff = (90 - minAngle) * Mathf.Deg2Rad;
+
+            var a_tangent = (points[cc1.i.index] - points[cc1.j.index]).normalized; // normalization happens inside angle calculation
+            var b_tangent = (points[cc2.i.index] - points[cc2.j.index]).normalized;
+            float angle = Vector2.Angle(a_tangent, b_tangent) * Mathf.Deg2Rad;  // [0, Mathf.PI)
+            if (angle > Mathf.PI * 0.5f)
+                angle = Mathf.PI - angle;                                       // [0, Mathf.PI * 0.5f)
+            float invAngle = Mathf.PI * 0.5f - angle;                           // Inversed (same range, but 0 is a 90° angle)
+
+            return quadraticLoss(invAngle, maxAngleDiff);
+        }
+
+        return Tuple.Create(getCrossingRelSizeLoss(), getLengthRelDiffLoss(), getAngleLoss());
     }
 
     private RoadSpline GenerateIntersectingSplineCandidate(List<Vector2> points, List<int> indicesOfSegments, List<CrossingOpeningPoint> sortCOPs)
@@ -1027,12 +1071,28 @@ class CrossingCandidate
 
 class CrossingCandidatePair
 {
-    public float badness;
+    // For debugging purposes (adjusting the badness calculations), we store more details than needed here.
+    // Of course, we would usually just need the badness itself;
+
+    // Note that in the badness calculation, we decided against separate multipliers, as the used loss functions
+    // already increase so rapidly that multipliers only have limited effect and are difficult to tune.
+
+    public float crossingRelSizeLoss;
+    public float lengthRelDiffLoss;
+    public float angleLoss;
+
+    public bool Acceptable { get { return crossingRelSizeLoss >= 0 && lengthRelDiffLoss >= 0 && angleLoss >= 0; } }
+    public float Badness { get { return crossingRelSizeLoss + lengthRelDiffLoss + angleLoss; } }
+
+
     public RoadSpline spline;
 
-    public CrossingCandidatePair(float badness, RoadSpline spline)
+    public CrossingCandidatePair(float crossingRelSizeLoss, float lengthRelDiffLoss, float angleLoss, RoadSpline spline)
     {
-        this.badness = badness;
+        this.crossingRelSizeLoss = crossingRelSizeLoss;
+        this.lengthRelDiffLoss = lengthRelDiffLoss;
+        this.angleLoss = angleLoss;
+
         this.spline = spline;
     }
 }
