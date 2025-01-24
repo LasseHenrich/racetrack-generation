@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
 public class ToolWindow_PlayMode : MonoBehaviour
 {
     GUIStyle style_Label;
+    GUIStyle style_InlineLabel;
+    GUIStyle style_BoldLabel;
 
     Dictionary<int, bool> foldouts;
 
@@ -18,7 +22,9 @@ public class ToolWindow_PlayMode : MonoBehaviour
 
     protected virtual void OnGUI()
     {
-        style_Label = new GUIStyle();
+        style_Label = new GUIStyle(GUI.skin.label);
+        style_InlineLabel = new GUIStyle(style_Label) { alignment = TextAnchor.MiddleLeft };
+        style_BoldLabel = new GUIStyle(style_Label) { fontStyle = FontStyle.Bold };
     }
 
     #region GUI Methods
@@ -44,16 +50,25 @@ public class ToolWindow_PlayMode : MonoBehaviour
 
     protected void CreateTextField(string name, ref string input)
     {
-        input = GUILayout.TextField(name, input);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(name, style_InlineLabel);
+        input = GUILayout.TextField(input);
+        GUILayout.EndHorizontal();
     }
 
     protected void CreateIntField(string name, ref int input)
     {
-        input = int.TryParse(GUILayout.TextField(name + ": " + input), out int result) ? result : input;
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(name, style_InlineLabel);
+        input = int.TryParse(GUILayout.TextField(input.ToString()), out int result) ? result : input;
+        GUILayout.EndHorizontal();
     }
     protected void CreateFloatField(string name, ref float input)
     {
-        input = float.TryParse(GUILayout.TextField(name + ": " + input), out float result) ? result : input;
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(name, style_InlineLabel);
+        input = float.TryParse(GUILayout.TextField(input.ToString()), out float result) ? result : input;
+        GUILayout.EndHorizontal();
     }
 
     protected void CreateVector2Field(string name, ref Vector2 input)
@@ -173,6 +188,37 @@ public class ToolWindow_PlayMode : MonoBehaviour
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+        }
+    }
+
+    protected void CreateEnumSelection<T>(string name, T currentSelection, Action<T> onValueChanged) where T : Enum
+    {
+        // Create a section with the enum name
+        GUILayout.Label(name, style_BoldLabel);
+
+        // Get all values of the enum
+        T[] enumValues = (T[])Enum.GetValues(typeof(T));
+
+        // Create a button for each enum value
+        foreach (T enumValue in enumValues)
+        {
+            // Determine if this is the currently selected value
+            bool isSelected = currentSelection.Equals(enumValue);
+
+            // Create a button with custom styling based on selection
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal,
+                normal = {
+                textColor = isSelected ? Color.green : Color.white
+            }
+            };
+
+            // Create the button
+            if (GUILayout.Button(enumValue.ToString(), buttonStyle))
+            {
+                onValueChanged(enumValue);
+            }
         }
     }
 

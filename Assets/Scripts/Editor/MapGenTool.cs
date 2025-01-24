@@ -420,7 +420,6 @@ public class MapGenTool : ToolWindow
                     CreateButton("Single Step LS", () => RepulsionUpdate());
                     CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
                     CreateCheckbox("Run LS", ref runningLineSearch);
-
                     #endregion
 
                 });

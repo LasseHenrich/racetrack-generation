@@ -14,7 +14,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     #region Exposed
 
     public GenMode genMode = GenMode.Circular;
-    public RepulsionType repulsionType = RepulsionType.Normal;
+    public RepulsionType repulsionType = RepulsionType.Sobolev;
 
     public bool curveClosed = true;
     bool deacObsAfterScaling = true;
@@ -22,11 +22,11 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     bool noRepulsionAfterScaling = false;
     float lsStepThreshold = 1e-15f;
     float energyThreshold = 0f;
-    bool showBezier = true;
-    bool showBezierHandles = true;
+    public bool showBezier = true;
+    public bool showBezierHandles = true;
     public bool showPolyLine = true;
     public bool showPolyPoints = true;
-    bool showObstacles = true;
+    public bool showObstacles = true;
     bool useBarnesHut = true;
     bool useBackproj = true;
     bool runningLineSearch = false;
@@ -112,19 +112,18 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             _curve = value;
         }
     }
-    Spline InitialSpline { get { return Curve.spline; } }
 
     #endregion
 
     #region BezierSpline
 
     // Spline
-    RoadSpline roadSpline;
+    public RoadSpline roadSpline;
     float epsilon = 0.2f;
     float psi = 2f;
 
     // Intersections
-    //float intersectionPreferredDistance = 0f; //5f
+    float intersectionPreferredDistance = 0f; //5f
 
     // Topology
     float _fixedPartLengthMultiplier = 1f;
@@ -137,23 +136,24 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
     #region RoadGen
 
-    bool overrideWidth = false;
-    float roadPartLength = 1f;
-    float bridgePartLength = 1f;
-    float _widthMultiplier = 1f;
-    float WidthMultiplier { get { return _widthMultiplier * 1000; } }
-    float _heightMultiplier = 8f;
-    float HeightMultiplier { get { return _heightMultiplier * 1000; } }
-    float crossingShape = 0.5f;
-
-    bool autoUpdateRoad = true;
-
     public MeshTopologyEditorConfig object_road;
     public MeshTopologyEditorConfig object_bridgeAscent;
     public MeshTopologyEditorConfig object_bridge;
     public MeshTopologyEditorConfig object_bridgeDescent;
     public MeshTopologyEditorConfig object_crossing;
     public MeshTopologyEditorConfig object_ramp;
+
+    float roadPartLength = 1f;
+    float bridgePartLength = 1f;
+    float _widthMultiplier = 1f;
+    float WidthMultiplier { get { return _widthMultiplier * 1000; } }
+    float _heightMultiplier = 1f;
+    float HeightMultiplier { get { return _heightMultiplier * 1000; } }
+    float crossingShape = 0.552f;
+
+    bool autoUpdateRoad = true;
+
+    string mapObjectName = "MyMap";
 
     #endregion
 
@@ -184,9 +184,34 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             new Rect(0, 0, maxWidth - 20, contentHeight) // Subtracting 20 for the scrollbar width
         );
 
-        #region Options
+        #region Manual Steps
+        CreateSection("Manual Steps", () =>
+        {
+            CreateLabel("Shape Generation");   
+            CreateButton("Create Polyline", () => GeneratePolyline());
+            CreateButton("Reset Polyline", ResetPolyline);
+            CreateButton("Single Step", () => RepulsionUpdate());
+            CreateButton("Ten Steps", () => RepulsionUpdate(10));
+            CreateCheckbox("Run Shape Generation automatically", ref runningLineSearch);
 
-        CreateSection("Options", () =>
+            CreateLabel("Spline");
+            CreateButton("Generate Bezier Spline", GeneateBezierSpline);
+            CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
+
+            CreateLabel("Mesh Generation");
+            CreateButton("Scale Spline to fit Width", ScaleCurveToFitWidth);
+            CreateButton("Calculate Features along Spline", () => TopologyHandler.GenerateTopologies());
+            CreateButton("Generate Road", GenerateRoad);
+
+            CreateLabel("Saving");
+            CreateTextField("File Name", ref mapObjectName);
+            CreateButton("Save Map", SaveMap);
+            CreateButton("Export Prefab", ExportPrefab);
+        });
+        #endregion
+
+        #region Advanced
+        CreateSection("Advanced", () =>
         {
 
             CreateSubSection("Curve Generation", () =>
@@ -205,8 +230,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                 #region Polyline
                 CreateSubSubSection("Polyline", () =>
                 {
-                    Debug.LogWarning("GenMode Dropdown tbd");
-                    //genMode = (GenMode)EditorGUILayout.EnumPopup("Gen Mode", genMode);
+                    CreateEnumSelection("Gen Mode", genMode, (GenMode value) => genMode = value);
                     CreateCheckbox("Closed Curve", ref curveClosed);
 
                     #region GenModeConfig
@@ -326,14 +350,23 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
                     #endregion
 
+                    #region Creation
+                    CreateButton("Create Polyline", () => GeneratePolyline());
+                    CreateButton("Reset Polyline", ResetPolyline);
+                    CreateButton("Print Polyline as 2D Arary", PrintPolyline);
+                    #endregion
+
                     #region Repulsion
                     CreateLabel("");
                     CreateLabel("Repulsion");
                     CreateCheckbox("Use Barnes Hut", ref useBarnesHut);
                     CreateCheckbox("Use Backprojection", ref useBackproj);
-                    //repulsionType = (RepulsionType)EditorGUILayout.EnumPopup("Repulsion Method", repulsionType);
-                    Debug.LogWarning("RepulsionType Dropdown tbd");
-
+                    CreateEnumSelection("Repulsion Method", repulsionType, (RepulsionType value) => repulsionType = value);
+                    CreateLabel("");
+                    CreateLabel("Running");
+                    CreateButton("Single Step LS", () => RepulsionUpdate());
+                    CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
+                    CreateCheckbox("Run LS", ref runningLineSearch);
                     #endregion
 
                 });
@@ -345,8 +378,12 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                 {
                     CreateFloatField("Epsilon", ref epsilon);
                     CreateFloatField("Psi", ref psi);
+                    CreateButton("Generate Bezier Spline", GeneateBezierSpline);
+                    CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
                     CreateFloatField("Fixed Part Length Multiplier", ref _fixedPartLengthMultiplier);
                     CreateFloatField("Crossing Extra Size", ref crossingExtraSize);
+                    CreateButton("Scale curve to fit width", ScaleCurveToFitWidth);
+                    CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
                 });
 
                 #endregion
@@ -390,50 +427,31 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                     }
                 }
 
-                CreateCheckbox("Override Width", ref overrideWidth);
-                if (overrideWidth) CreateFloatField("Width Multiplier", ref _widthMultiplier);
+                CreateFloatField("Width Multiplier", ref _widthMultiplier);
                 CreateFloatField("Height Multiplayer", ref _heightMultiplier);
                 CreateFloatField("Road Part Length", ref roadPartLength);
                 CreateFloatField("Bridge Part Length", ref bridgePartLength);
                 CreateSliderFloat(ref crossingShape, "Crossing Shape", 0f, 1f);
                 CreateCheckbox("Auto Update Road", ref autoUpdateRoad);
-
+                CreateButton("Generate Road", GenerateRoad);
             });
-
             #endregion
 
-
-
+            #region Operations
+            CreateSubSection("Operations", () =>
+            {
+                //CreateButton("Start Environment", StartEnvironment);
+                //CreateButton("Stop Environment", StopEnvironment);
+                CreateButton("Load Map", LoadMap);
+                CreateTextField("File Name", ref mapObjectName);
+                CreateButton("Save Map", SaveMap);
+                CreateButton("Export Prefab", ExportPrefab);
+            });
+            #endregion
         });
-
-        #endregion
-
-        #region Running
-
-        CreateSection("Running", () =>
-        {
-            CreateButton("Create Polyline", () => GeneratePolyline());
-            CreateButton("Reset Polyline", ResetPolyline);
-            CreateButton("Print Polyline as 2D Arary", PrintPolyline);
-
-            CreateButton("Single Step LS", () => RepulsionUpdate());
-            CreateButton("Ten Steps LS", () => RepulsionUpdate(10));
-            CreateCheckbox("Run LS", ref runningLineSearch);
-
-            /*
-            CreateButton("Generate Bezier Spline", GeneateBezierSpline);
-            CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
-
-            CreateButton("Calculate Maximum Road Width", CalculateWidthMultiplier);
-            CreateButton("Scale curve to fit width 1", ScaleCurveToFitWidth1);
-            CreateButton("Add Features", () => TopologyHandler.GenerateTopologies());
-            */
-        });
-
         #endregion
 
         GUI.EndScrollView();
-
         GUILayout.EndVertical();
     }
 
@@ -561,17 +579,21 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         //Debug.Log(bezierSpline);
     }
 
-    void CalculateWidthMultiplier()
+    void ScaleCurveToFitWidth()
     {
         float width = roadSpline.CalculateMinimumDistance();
-        float new_widthMultiplier = width / object_road.mesh.bounds.size.x;
-        float _wToW = WidthMultiplier / _widthMultiplier;
-        _widthMultiplier = new_widthMultiplier / _wToW;
-        Debug.Log("New WidthMultiplier: " + WidthMultiplier);
+        float newWidthMultiplier = width / object_road.mesh.bounds.size.x;
+        roadSpline.ScaleByT(WidthMultiplier / newWidthMultiplier);
+    }
+
+    void GenerateRoad()
+    {
+        RegenerateRoad();
     }
 
     void RegenerateRoad()
     {
+        Debug.Log("Not functional at the moment");
         /*
         RoadGen.GenerateRoad_WholeParts(
             obj.transform,
@@ -631,24 +653,31 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         return object_ramp.mesh.bounds.size.z * FixedPartLengthMultiplier;
     }
 
-    /*
 
     void LoadMap()
     {
+        Debug.Log("Not functional at the moment");
+        /*
         SerializedMapObject smo = SerializedMapObject.LoadFromFile(mapObjectName);
         roadSpline = smo.roadSpline;
         UpdateTopologyHandler(); // For new spline
         TopologyHandler.SetTopologies(smo.topologies, smo.fourPercCrossings_1D);
+        */
     }
 
     void SaveMap()
     {
+        Debug.Log("Not functional at the moment");
+        /*
         SerializedMapObject smo = new(roadSpline, TopologyHandler.topologies, TopologyHandler.fourPercCrossings);
         smo.SaveToFile(mapObjectName);
+        */
     }
 
     void ExportPrefab()
     {
+        Debug.Log("Not functional at the moment");
+        /*
         string baseObjectsPath = "Assets/Resources/Maps/Generated/Objects";
         AssetDatabase.CreateFolder(baseObjectsPath, mapObjectName);
         string prefabPath = $"{baseObjectsPath}/{mapObjectName}";
@@ -675,7 +704,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             Debug.Log("Prefab failed to save" + success);
 
         DestroyImmediate(saveObject);
+        */
     }
-
-    */
 }
