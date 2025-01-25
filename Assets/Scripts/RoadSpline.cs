@@ -328,7 +328,7 @@ public class RoadSpline : Spline
     /// </summary>
     /// <param name="preferredDistance">Defines how far long the straight section around a crossing should be. Usually, 0 is a good value.</param>
     /// <returns></returns>
-    public void AddIntersections(float preferredDistance)
+    public bool AddIntersections(float preferredDistance)
     {
         float spacing = 0.2f;
         List<Vector2> points = CalculateEvenlySpacedPoints(spacing, out List<int> indicesOfSegments);
@@ -355,7 +355,7 @@ public class RoadSpline : Spline
         if (candidatePairs.Count == 0)
         {
             Debug.LogWarning("No candidate pairs found.");
-            return;
+            return false;
         }
 
         List<CrossingCandidatePair> acceptableCandidatePairs = candidatePairs.Where(x => x.crossingRelSizeLoss >= 0 && x.lengthRelDiffLoss >= 0 && x.angleLoss >= 0).ToList();
@@ -363,7 +363,7 @@ public class RoadSpline : Spline
         if (acceptableCandidatePairs.Count == 0)
         {
             Debug.LogWarning("No good candidate pairs found. Consider tweaking the quality control thresholds (currently only possible through the code)");
-            return;
+            return false;
         }
 
         var ccp = acceptableCandidatePairs.OrderBy(x => x.Badness).First();
@@ -371,6 +371,8 @@ public class RoadSpline : Spline
         controls = new(this, ccp.spline.controls.GetList());
         CalculateAllPointsInSegments();
         CalculateAllSegmentLengths(); // THOSE ARE NECESSARY, the one in the constructor doesn't seem to work [2023-03-26]
+
+        return true;
     }
 
     private List<CrossingCandidatePair> AssembleCandidatePairs(float preferredDistance, List<Vector2> points, List<int> indicesOfSegments, List<CrossingCandidate> candidates)

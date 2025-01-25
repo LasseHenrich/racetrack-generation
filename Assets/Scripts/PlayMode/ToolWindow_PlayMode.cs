@@ -8,7 +8,6 @@ public class ToolWindow_PlayMode : MonoBehaviour
 {
     GUIStyle style_Label;
     GUIStyle style_InlineLabel;
-    GUIStyle style_BoldLabel;
 
     Dictionary<int, bool> foldouts;
 
@@ -24,7 +23,6 @@ public class ToolWindow_PlayMode : MonoBehaviour
     {
         style_Label = new GUIStyle(GUI.skin.label);
         style_InlineLabel = new GUIStyle(style_Label) { alignment = TextAnchor.MiddleLeft };
-        style_BoldLabel = new GUIStyle(style_Label) { fontStyle = FontStyle.Bold };
     }
 
     #region GUI Methods
@@ -94,38 +92,16 @@ public class ToolWindow_PlayMode : MonoBehaviour
 
     protected void CreateSlider(ref int value, string text, int start, int end)
     {
-        /*
-        Rect position = EditorGUILayout.GetControlRect(false, 2 * EditorGUIUtility.singleLineHeight);
-        position.height *= 0.5f;
-        value = (int)EditorGUI.Slider(position, text, value, start, end);
-
-        position.y += position.height;
-        position.x += EditorGUIUtility.labelWidth;
-        position.width -= EditorGUIUtility.labelWidth + 54;
-
-        GUIStyle style = GUI.skin.label;
-        style.alignment = TextAnchor.UpperLeft; EditorGUI.LabelField(position, start.ToString(), style);
-        style.alignment = TextAnchor.UpperRight; EditorGUI.LabelField(position, end.ToString(), style);
-        */
-        value = (int)GUILayout.HorizontalSlider(value, start, end);
+        GUILayout.Label($"{text}: {value}");
+        float rawValue = GUILayout.HorizontalSlider(value, start, end);
+        value = Mathf.RoundToInt(rawValue);
     }
 
-    protected void CreateSliderFloat(ref float value, string text, float start, float end)
+    protected void CreateSliderFloat(ref float value, string text, float start, float end, float snap = 0.5f)
     {
-        /*
-        Rect position = EditorGUILayout.GetControlRect(false, 2 * EditorGUIUtility.singleLineHeight);
-        position.height *= 0.5f;
-        value = EditorGUI.Slider(position, text, value, start, end);
-
-        position.y += position.height;
-        position.x += EditorGUIUtility.labelWidth;
-        position.width -= EditorGUIUtility.labelWidth + 54;
-
-        GUIStyle style = GUI.skin.label;
-        style.alignment = TextAnchor.UpperLeft; EditorGUI.LabelField(position, start.ToString(), style);
-        style.alignment = TextAnchor.UpperRight; EditorGUI.LabelField(position, end.ToString(), style);
-        */
-        value = GUILayout.HorizontalSlider(value, start, end);
+        GUILayout.Label($"{text}: {value:F1}");
+        float rawValue = GUILayout.HorizontalSlider(value, start, end);
+        value = Mathf.Round(rawValue / snap) * snap;
     }
 
     protected void CreateCurveField(string name, ref AnimationCurve curve)
@@ -194,7 +170,7 @@ public class ToolWindow_PlayMode : MonoBehaviour
     protected void CreateEnumSelection<T>(string name, T currentSelection, Action<T> onValueChanged) where T : Enum
     {
         // Create a section with the enum name
-        GUILayout.Label(name, style_BoldLabel);
+        GUILayout.Label(name, style_Label);
 
         // Get all values of the enum
         T[] enumValues = (T[])Enum.GetValues(typeof(T));

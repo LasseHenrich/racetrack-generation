@@ -2,10 +2,30 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using System.Text;
+using System.IO;
+using System.Globalization;
 
 public class ControlWindow_PlayMode : ToolWindow_PlayMode
 {
     private Vector2 scrollPosition;
+
+    public float maxWidth = 400;
+    public float contentHeight = 2000;
+
+    #region Automation Controls
+
+    Auto_Stage auto_stage = Auto_Stage.PolylineGen;
+    int auto_currCurveCount = 0;
+    int auto_intersectionCount = 0;
+
+    #region Exposed
+    int auto_maxCurveCount = 5;
+    bool auto_generating = false;
+    string auto_filepath = "C:\\temp\\";
+    #endregion
+
+    #endregion
 
     #region Curve
 
@@ -13,25 +33,24 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
     #region Exposed
 
-    public GenMode genMode = GenMode.Circular;
-    public RepulsionType repulsionType = RepulsionType.Sobolev;
+    [HideInInspector()] public GenMode genMode = GenMode.Circular;
+    [HideInInspector()] public RepulsionType repulsionType = RepulsionType.Sobolev;
 
-    public bool curveClosed = true;
+    [HideInInspector()] public bool curveClosed = true;
     bool deacObsAfterScaling = true;
     bool rotateAfterScaling = false;
     bool noRepulsionAfterScaling = false;
     float lsStepThreshold = 1e-15f;
     float energyThreshold = 0f;
-    public bool showBezier = true;
-    public bool showBezierHandles = true;
-    public bool showPolyLine = true;
-    public bool showPolyPoints = true;
-    public bool showObstacles = true;
+    [HideInInspector()] public bool showBezier = true;
+    [HideInInspector()] public bool showBezierHandles = true;
+    [HideInInspector()] public bool showPolyLine = true;
+    [HideInInspector()] public bool showPolyPoints = true;
+    [HideInInspector()] public bool showObstacles = true;
     bool useBarnesHut = true;
     bool useBackproj = true;
     bool runningLineSearch = false;
 
-    [SerializeField]
     GenModeConfig genModeConfig = new GenModeConfig_Circular();
 
     public EnergyCurve_EditorConfig Config
@@ -46,7 +65,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
     float lengthScale = 6;
 
-    [SerializeField]
     Dict_ConstraintType_Bool usingConstraint = new();
 
     List<ConstraintType> ConstraintList
@@ -118,7 +136,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     #region BezierSpline
 
     // Spline
-    public RoadSpline roadSpline;
+    [HideInInspector()] public RoadSpline roadSpline;
     float epsilon = 0.2f;
     float psi = 2f;
 
@@ -169,9 +187,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     {
         base.OnGUI();
 
-        float maxWidth = 300;
-        float contentHeight = 2000;
-
         // Background
         GUI.Box(new Rect(0, 0, maxWidth, Screen.height), GUIContent.none);
 
@@ -183,6 +198,17 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             scrollPosition,
             new Rect(0, 0, maxWidth - 20, contentHeight) // Subtracting 20 for the scrollbar width
         );
+
+        #region Automation
+        CreateSection("Automation", () =>
+        {
+            CreateIntField("Number", ref auto_maxCurveCount);
+            CreateLabel($"Current Curve Count: {auto_currCurveCount}");
+            CreateButton("Generate", Auto_Start);
+            CreateButton("Stop and Reset", Auto_Stop);
+            CreateTextField("Export Directory", ref auto_filepath);
+        });
+        #endregion
 
         #region Manual Steps
         CreateSection("Manual Steps", () =>
@@ -196,7 +222,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
             CreateLabel("Spline");
             CreateButton("Generate Bezier Spline", GeneateBezierSpline);
-            CreateButton("Add Intersection", () => roadSpline.AddIntersections(intersectionPreferredDistance));
+            CreateButton("Add Intersection", () => AddIntersection());
 
             CreateLabel("Mesh Generation");
             CreateButton("Scale Spline to fit Width", ScaleCurveToFitWidth);
@@ -392,6 +418,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
             CreateSubSection("Road Object", () =>
             {
+                /*
                 DoFoldout("Road", object_road);
                 DoFoldout("BridgeAscent", object_bridgeAscent);
                 DoFoldout("Bridge", object_bridge);
@@ -426,6 +453,10 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                         matList.RemoveRange(Mathf.Max(numMats - 1, 0), matList.Count - numMats);
                     }
                 }
+                */
+
+                CreateLabel("Assigning objects here is not supported yet!");
+                CreateLabel("Please assign road objects in the Unity Editor");
 
                 CreateFloatField("Width Multiplier", ref _widthMultiplier);
                 CreateFloatField("Height Multiplayer", ref _heightMultiplier);
@@ -453,11 +484,58 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
         GUI.EndScrollView();
         GUILayout.EndVertical();
-    }
 
+        UpdateTopologyHandler();
+    }
 
     void Update()
     {
+        if (auto_generating)
+        {
+            switch (auto_stage)
+            {
+                case Auto_Stage.PolylineGen:
+                    auto_intersectionCount = 0;
+                    GeneratePolyline();
+
+                    runningLineSearch = true;
+                    auto_stage = Auto_Stage.LineSearch;
+                    break;
+                case Auto_Stage.LineSearch:
+                    if (!runningLineSearch) // generation done
+                    {
+                        auto_stage = Auto_Stage.SplineGen;
+                    }
+                    break;
+                case Auto_Stage.SplineGen:
+                    GeneateBezierSpline();
+                    auto_stage = Auto_Stage.IntersectionGen;
+                    break;
+                case Auto_Stage.IntersectionGen:
+                    bool intersectionAdded = AddIntersection();
+                    if (intersectionAdded)
+                        auto_intersectionCount++;
+                    else
+                        auto_stage = Auto_Stage.FittingWidth;
+                    break;
+                case Auto_Stage.FittingWidth:
+                    ScaleCurveToFitWidth();
+                    auto_stage = Auto_Stage.Finished;
+                    break;
+                case Auto_Stage.Finished:
+                    ExportTrack();
+                    auto_currCurveCount++;
+                    if (auto_currCurveCount < auto_maxCurveCount)
+                        auto_stage = Auto_Stage.PolylineGen;
+                    else
+                        auto_generating = false;
+                    break;
+                default:
+                    Debug.LogWarning("Something went wrong!");
+                    break;
+            }
+        }
+
         if (runningLineSearch)
         {
             RepulsionUpdate();
@@ -465,6 +543,119 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
         Curve.SerializeVertsEdgesPositions();
         Curve.S_SerializeObstaclePositions();
+    }
+
+    private void UpdateTopologyHandler()
+    {
+        TopologyHandler.OnUpdateProperties(
+            roadPartLength: roadPartLength,
+            roadPartWidth: RoadPartWidth(),
+            bridgeAscentLength: BridgeAscentLength(),
+            bridgeDescentLength: BridgeDescentLength(),
+            crossingExtraSize: crossingExtraSize,
+            rampLength: RampLength(),
+            roadSpline: roadSpline
+        );
+    }
+
+    void Auto_Start()
+    {
+        auto_currCurveCount = 0;
+        if (auto_currCurveCount < auto_maxCurveCount)
+        {
+            auto_generating = true;
+            auto_stage = Auto_Stage.PolylineGen;
+        }
+    }
+
+    void Auto_Stop()
+    {
+        auto_generating = false;
+        runningLineSearch = false;
+    }
+
+    protected void ExportTrack()
+    {
+        // Assuming that deacObsAfterScaling corresponds to whether or not we use an isometry potential
+
+        string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+
+        string points = SplineToPointsString();
+        string pointsFilename = $"{timestamp}_{lengthScale}_{deacObsAfterScaling}_points.csv";
+        string csv_points = GenerateCsvContent(pointsFilename, points);
+
+        Debug.Log(csv_points.ToString());
+        try
+        {
+            File.WriteAllText(auto_filepath + "\\" + pointsFilename, csv_points.ToString());
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("Exporting points failed!");
+            Debug.LogException(ex);
+        }
+
+
+        string controls = SplineToControlsString();
+        string controlsFilename = $"{timestamp}_{lengthScale}_{deacObsAfterScaling}_spline.csv";
+        string csv_controls = GenerateCsvContent(controlsFilename, controls);
+
+        Debug.Log(csv_controls);
+        try
+        {
+            File.WriteAllText(auto_filepath + "\\" + controlsFilename, csv_controls.ToString());
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("Exporting controls failed!");
+            Debug.LogException(ex);
+        }
+    }
+
+    private string GenerateCsvContent(string filename, string data)
+    {
+        return string.Join(";", new[]
+        {
+            filename,
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            steps.ToString(),
+            lengthScale.ToString(),
+            deacObsAfterScaling.ToString(),
+            auto_intersectionCount.ToString(),
+            data
+        });
+    }
+
+    protected string SplineToPointsString()
+    {
+        StringBuilder sb = new();
+        bool first = true;
+        foreach (Vector2 v in roadSpline.CalculateEvenlySpacedPoints(1.0f))
+        {
+            if (!first)
+                sb.Append(", ");
+            first = false;
+            //Don't us Vector2 toString because it rounds to two decimals
+            sb.Append("(" + v.x.ToString(CultureInfo.InvariantCulture) + ", " + v.y.ToString(CultureInfo.InvariantCulture) + ")");
+        }
+        return sb.ToString();
+    }
+
+    protected string SplineToControlsString()
+    {
+        StringBuilder sb = new();
+        bool first = true;
+        foreach (Vector2[] segControls in roadSpline.pointsInSegment)
+        {
+            foreach (Vector2 c in segControls) // four controls per segment -> anchor points are always included in two segements
+            {
+                if (!first)
+                    sb.Append(", ");
+                first = false;
+                sb.Append("(" + c.x.ToString(CultureInfo.InvariantCulture) + ", " + c.y.ToString(CultureInfo.InvariantCulture) + ")");
+            }
+        }
+        return sb.ToString();
     }
 
     EnergyCurve GeneratePolyline()
@@ -577,6 +768,11 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     {
         roadSpline = new(PolylineToBezier.Convert(Curve.Polyline, epsilon, psi), true, true);
         //Debug.Log(bezierSpline);
+    }
+
+    bool AddIntersection()
+    {
+        return roadSpline.AddIntersections(intersectionPreferredDistance);
     }
 
     void ScaleCurveToFitWidth()
@@ -706,4 +902,14 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         DestroyImmediate(saveObject);
         */
     }
+}
+
+enum Auto_Stage
+{
+    PolylineGen,
+    LineSearch,
+    SplineGen,
+    IntersectionGen,
+    FittingWidth,
+    Finished
 }
