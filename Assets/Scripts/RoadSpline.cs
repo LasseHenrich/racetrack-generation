@@ -49,8 +49,9 @@ public class RoadSpline : Spline
     {
         float crossingPercRange = TopologyHandler.Crossing_EstimatedStartEndRange();
         crossingPercRange *= 2f; // Goodwill
-        Debug.Log(crossingPercRange);
+        //Debug.Log(crossingPercRange);
 
+        // note that we work with actual intersections, not just with deliberately introduced ones
         var intersectingPercents = TopologyHandler.CalculateIntersectingPercents();
         var topologies = TopologyHandler.EmptyTopologyList();
         foreach (var ip in intersectingPercents)

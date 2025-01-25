@@ -14,7 +14,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     public float contentHeight = 2000;
 
     #region Automation Controls
-
     Auto_Stage auto_stage = Auto_Stage.PolylineGen;
     int auto_currCurveCount = 0;
     int auto_intersectionCount = 0;
@@ -203,9 +202,9 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         CreateSection("Automation", () =>
         {
             CreateIntField("Number", ref auto_maxCurveCount);
-            CreateLabel($"Current Curve Count: {auto_currCurveCount}");
+            CreateLabel($"Already Generated: {auto_currCurveCount}");
             CreateButton("Generate", Auto_Start);
-            CreateButton("Stop and Reset", Auto_Stop);
+            CreateButton("Stop", Auto_Stop);
             CreateTextField("Export Directory", ref auto_filepath);
         });
         #endregion
@@ -576,8 +575,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
     protected void ExportTrack()
     {
-        // Assuming that deacObsAfterScaling corresponds to whether or not we use an isometry potential
-
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
 
         string points = SplineToPointsString();
@@ -619,9 +616,11 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             filename,
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             steps.ToString(),
-            lengthScale.ToString(),
-            deacObsAfterScaling.ToString(),
-            auto_intersectionCount.ToString(),
+            lengthScale.ToString(), // "complexity"
+            roadSpline.TotalLength.ToString(), // actual length
+            deacObsAfterScaling.ToString(), // isometry (at least we assume so, but could be not related)
+            auto_intersectionCount.ToString(), // number of deliberate intersections
+            roadSpline.CalculateIntersections().Count.ToString(), // number if actual intersections
             data
         });
     }

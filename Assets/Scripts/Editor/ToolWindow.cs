@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static Codice.CM.WorkspaceServer.WorkspaceTreeDataStore;
 
 public class ToolWindow : EditorWindow
 {
