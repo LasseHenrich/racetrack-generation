@@ -1,18 +1,16 @@
-using UnityEngine;
-using System.Collections.Generic;
 using System;
-using System.Linq;
-using System.Text;
-using System.IO;
+using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using UnityEditor;
+using UnityEngine;
 
-public class ControlWindow_PlayMode : ToolWindow_PlayMode
+public abstract class MapGenToolBase
 {
-    private Vector2 scrollPosition;
-
-    public float maxWidth = 400;
-    public float contentHeight = 2000;
-
     #region Automation Controls
     Auto_Stage auto_stage = Auto_Stage.PolylineGen;
     int auto_currCurveCount = 0;
@@ -31,26 +29,26 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     #region Polyline
 
     #region Exposed
+    public GenMode genMode = GenMode.Circular;
+    public RepulsionType repulsionType = RepulsionType.Sobolev;
 
-    [HideInInspector()] public GenMode genMode = GenMode.Circular;
-    [HideInInspector()] public RepulsionType repulsionType = RepulsionType.Sobolev;
-
-    [HideInInspector()] public bool curveClosed = true;
+    public bool curveClosed = true;
     bool deacObsAfterScaling = true;
     bool rotateAfterScaling = false;
     bool noRepulsionAfterScaling = false;
     float lsStepThreshold = 1e-15f;
     float energyThreshold = 0f;
-    [HideInInspector()] public bool showBezier = true;
-    [HideInInspector()] public bool showBezierHandles = true;
-    [HideInInspector()] public bool showPolyLine = true;
-    [HideInInspector()] public bool showPolyPoints = true;
-    [HideInInspector()] public bool showObstacles = true;
+    public bool showBezier = true;
+    public bool showBezierHandles = true;
+    public bool showPolyLine = true;
+    public bool showPolyPoints = true;
+    public bool showObstacles = true;
     bool useBarnesHut = true;
     bool useBackproj = true;
     bool runningLineSearch = false;
 
-    GenModeConfig genModeConfig = new GenModeConfig_Circular();
+    [SerializeField] // Serialization is important for editor tool
+    public GenModeConfig genModeConfig = new GenModeConfig_Circular();
 
     public EnergyCurve_EditorConfig Config
     {
@@ -61,9 +59,9 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     }
 
     #region Constraints
-
     float lengthScale = 6;
 
+    [SerializeField]
     Dict_ConstraintType_Bool usingConstraint = new();
 
     List<ConstraintType> ConstraintList
@@ -73,11 +71,9 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             return usingConstraint.Where(x => x.Value).Select(x => x.Key).ToList();
         }
     }
-
     #endregion
 
     #region Potentials
-
     Dict_PotentialType_Bool usingPotential = new();
     Dict_PotentialType_PotentialConfig potentialDict = new();
     List<PotentialConfig> PotentialList
@@ -87,11 +83,9 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             return potentialDict.Where(x => usingPotential.ContainsKey(x.Key) && usingPotential[x.Key] == true).Select(x => x.Value).ToList();
         }
     }
-
     #endregion
 
     #region Obstacles
-
     bool overrideObstacles = false;
     int numObstacles = 10;
     readonly List<ObstacleConfig> obstacleList = new();
@@ -102,7 +96,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             return overrideObstacles ? obstacleList : null;
         }
     }
-
     #endregion
 
     #endregion
@@ -116,26 +109,13 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     int subdivideCount;
     const int subdivideLimit = 2;
 
-    EnergyCurve _curve;
-    [HideInInspector]
-    public EnergyCurve Curve
-    {
-        get
-        {
-            return _curve ??= GeneratePolyline();
-        }
-        set
-        {
-            _curve = value;
-        }
-    }
-
+    public abstract EnergyCurve GetEnergyCurve();
+    protected abstract void SetEnergyCurve(EnergyCurve curve);
     #endregion
 
     #region BezierSpline
-
     // Spline
-    [HideInInspector()] public RoadSpline roadSpline;
+    public RoadSpline roadSpline;
     float epsilon = 0.2f;
     float psi = 2f;
 
@@ -146,58 +126,33 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     float _fixedPartLengthMultiplier = 1f;
     float FixedPartLengthMultiplier { get { return _fixedPartLengthMultiplier * 1000; } }
     float crossingExtraSize = 0.2f;
-
     #endregion
 
     #endregion
 
     #region RoadGen
+    protected abstract MeshTopologyEditorConfig GetObject_road();
+    protected abstract MeshTopologyEditorConfig GetObject_bridgeAscent();
+    protected abstract MeshTopologyEditorConfig GetObject_bridge();
+    protected abstract MeshTopologyEditorConfig GetObject_bridgeDescent();
+    protected abstract MeshTopologyEditorConfig GetObject_crossing();
+    protected abstract MeshTopologyEditorConfig GetObject_ramp();
 
-    public MeshTopologyEditorConfig object_road;
-    public MeshTopologyEditorConfig object_bridgeAscent;
-    public MeshTopologyEditorConfig object_bridge;
-    public MeshTopologyEditorConfig object_bridgeDescent;
-    public MeshTopologyEditorConfig object_crossing;
-    public MeshTopologyEditorConfig object_ramp;
-
-    float roadPartLength = 1f;
+    protected float roadPartLength = 1f;
     float bridgePartLength = 1f;
     float _widthMultiplier = 1f;
-    float WidthMultiplier { get { return _widthMultiplier * 1000; } }
+    protected float WidthMultiplier { get { return _widthMultiplier * 1000; } }
     float _heightMultiplier = 1f;
-    float HeightMultiplier { get { return _heightMultiplier * 1000; } }
-    float crossingShape = 0.552f;
+    protected float HeightMultiplier { get { return _heightMultiplier * 1000; } }
+    protected float crossingShape = 0.552f;
 
-    bool autoUpdateRoad = true;
+    public bool autoUpdateRoad = true;
 
-    string mapObjectName = "MyMap";
-
+    protected string mapObjectName = "MyMap";
     #endregion
 
-    /*
-    [MenuItem("Window/Map Gen -- Default Values")]
-    public static void ShowWindow()
+    public virtual void UpdateUI()
     {
-        GetWindow(typeof(DefaultValues));
-    }
-    */
-
-    protected override void OnGUI()
-    {
-        base.OnGUI();
-
-        // Background
-        GUI.Box(new Rect(0, 0, maxWidth, Screen.height), GUIContent.none);
-
-        GUILayout.BeginVertical();
-
-        // Begin the ScrollView
-        scrollPosition = GUI.BeginScrollView(
-            new Rect(0, 0, maxWidth, Screen.height),
-            scrollPosition,
-            new Rect(0, 0, maxWidth - 20, contentHeight) // Subtracting 20 for the scrollbar width
-        );
-
         #region Automation
         CreateSection("Automation", () =>
         {
@@ -209,38 +164,50 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         });
         #endregion
 
+        GUILayout.Space(10);
+
         #region Manual Steps
         CreateSection("Manual Steps", () =>
         {
-            CreateLabel("Shape Generation");   
+            CreateLabel("Shape Generation", 16);
             CreateButton("Create Polyline", () => GeneratePolyline());
             CreateButton("Reset Polyline", ResetPolyline);
             CreateButton("Single Step", () => RepulsionUpdate());
             CreateButton("Ten Steps", () => RepulsionUpdate(10));
             CreateCheckbox("Run Shape Generation automatically", ref runningLineSearch);
 
-            CreateLabel("Spline");
+            GUILayout.Space(5);
+
+            CreateLabel("Spline", 16);
             CreateButton("Generate Bezier Spline", GeneateBezierSpline);
             CreateButton("Add Intersection", () => AddIntersection());
 
-            CreateLabel("Mesh Generation");
+            GUILayout.Space(5);
+
+            CreateLabel("Mesh Generation", 16);
             CreateButton("Scale Spline to fit Width", ScaleCurveToFitWidth);
             CreateButton("Calculate Features along Spline", () => TopologyHandler.GenerateTopologies());
             CreateButton("Generate Road", GenerateRoad);
 
-            CreateLabel("Saving");
+            GUILayout.Space(5);
+
+            CreateLabel("Saving", 16);
             CreateTextField("File Name", ref mapObjectName);
             CreateButton("Save Map", SaveMap);
             CreateButton("Export Prefab", ExportPrefab);
         });
         #endregion
 
+        GUILayout.Space(10);
+
         #region Advanced
         CreateSection("Advanced", () =>
         {
 
+            #region Curve Generation
             CreateSubSection("Curve Generation", () =>
             {
+
                 #region GUI
                 CreateSubSubSection("GUI", () =>
                 {
@@ -275,7 +242,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                     #endregion
 
                     #region Obstacles
-
                     CreateLabel("");
                     CreateLabel("Obstacles");
 
@@ -365,14 +331,12 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                     #endregion
 
                     #region Other
-
                     CreateLabel("");
                     CreateLabel("Other");
                     CreateCheckbox("Rotate after scaling", ref rotateAfterScaling);
                     CreateCheckbox("No repulsion after scaling", ref noRepulsionAfterScaling);
                     CreateFloatField("LS step threshold", ref lsStepThreshold);
                     CreateFloatField("energy threshold", ref energyThreshold);
-
                     #endregion
 
                     #region Creation
@@ -395,7 +359,6 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                     #endregion
 
                 });
-
                 #endregion
 
                 #region Road Spline
@@ -413,29 +376,57 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
                 #endregion
             });
+            #endregion
+
             #region Road
 
             CreateSubSection("Road Object", () =>
             {
-                /*
-                DoFoldout("Road", object_road);
-                DoFoldout("BridgeAscent", object_bridgeAscent);
-                DoFoldout("Bridge", object_bridge);
-                DoFoldout("BridgeDescent", object_bridgeDescent);
-                DoFoldout("Crossing", object_crossing);
-                DoFoldout("Ramp", object_ramp);
+#if UNITY_EDITOR
+                // We use Asset selections via EditorGUILayout.ObjectField(),
+                // which is only possible in the Unity Editor.
+                // Note that this doesn't really work for the Play Mode Editor,
+                // just for the Unity Editor Editor. For the Play Mode Editor,
+                // you should assign the assets in the MonoBehavior directly.
+
+                // Note that the "name" arguments in the DoFoldout() calls also ensures
+                // the hashing in CreateSubSubSection to work correctly
+
+                CreateSubSubSection("Road Config", () =>
+                {
+                    DoFoldout("Road", GetObject_road());
+                });
+
+                CreateSubSubSection("BridgeAscent Config", () =>
+                {
+                    DoFoldout("BridgeAscent", GetObject_bridgeAscent());
+                });
+
+                CreateSubSubSection("Bridge Config", () =>
+                {
+                    DoFoldout("Bridge", GetObject_bridge());
+                });
+
+                CreateSubSubSection("BridgeDescent Config", () =>
+                {
+                    DoFoldout("BridgeDescent", GetObject_bridgeDescent());
+                });
+
+                CreateSubSubSection("Crossing Config", () =>
+                {
+                    DoFoldout("Crossing", GetObject_crossing());
+                });
+
+                CreateSubSubSection("Ramp Config", () =>
+                {
+                    DoFoldout("Ramp", GetObject_ramp());
+                });
 
                 void DoFoldout(string name, MeshTopologyEditorConfig metc)
                 {
-                    metc ??= new(null, 0, new(), false);
-                    _CreateFoldout(name + " Config", ref metc.showFoldout);
-                    if (metc.showFoldout)
-                    {
-                        Debug.LogWarning("Mesh Dropdown tbd");
-                        //metc.mesh = (Mesh)EditorGUILayout.ObjectField(name + " Mesh", metc.mesh, typeof(Mesh), allowSceneObjects: false);
-                        CreateSlider(ref metc.numMaterials, name + " Materials", 0, 5);
-                        CreateMaterialSelection(metc.materials, metc.numMaterials);
-                    }
+                    metc.mesh = (Mesh)EditorGUILayout.ObjectField(name + " Mesh", metc.mesh, typeof(Mesh), allowSceneObjects: false);
+                    CreateSlider(ref metc.numMaterials, name + " Materials", 0, 5);
+                    CreateMaterialSelection(metc.materials, metc.numMaterials);
                 }
 
                 void CreateMaterialSelection(List<Material> matList, int numMats)
@@ -443,8 +434,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                     for (int i = 0; i < numMats; i++)
                     {
                         if (i >= matList.Count) matList.Add(new(Shader.Find("Specular")));
-                        Debug.LogWarning("Material Dropdown tbd");
-                        //matList[i] = (Material)EditorGUILayout.ObjectField("Material " + (i + 1), matList[i], typeof(Material), allowSceneObjects: false);
+                        matList[i] = (Material)EditorGUILayout.ObjectField("Material " + (i + 1), matList[i], typeof(Material), allowSceneObjects: false);
                     }
 
                     if (matList != null && matList.Count > numMats)
@@ -452,10 +442,11 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                         matList.RemoveRange(Mathf.Max(numMats - 1, 0), matList.Count - numMats);
                     }
                 }
-                */
 
+#else
                 CreateLabel("Assigning objects here is not supported yet!");
                 CreateLabel("Please assign road objects in the Unity Editor");
+#endif
 
                 CreateFloatField("Width Multiplier", ref _widthMultiplier);
                 CreateFloatField("Height Multiplayer", ref _heightMultiplier);
@@ -465,7 +456,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
                 CreateCheckbox("Auto Update Road", ref autoUpdateRoad);
                 CreateButton("Generate Road", GenerateRoad);
             });
-            #endregion
+#endregion
 
             #region Operations
             CreateSubSection("Operations", () =>
@@ -479,15 +470,12 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             });
             #endregion
         });
-        #endregion
-
-        GUI.EndScrollView();
-        GUILayout.EndVertical();
+#endregion
 
         UpdateTopologyHandler();
     }
 
-    void Update()
+    public void MyUpdate()
     {
         if (auto_generating)
         {
@@ -540,11 +528,11 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             RepulsionUpdate();
         }
 
-        Curve.SerializeVertsEdgesPositions();
-        Curve.S_SerializeObstaclePositions();
+        GetEnergyCurve().SerializeVertsEdgesPositions();
+        GetEnergyCurve().S_SerializeObstaclePositions();
     }
 
-    private void UpdateTopologyHandler()
+    protected void UpdateTopologyHandler()
     {
         TopologyHandler.OnUpdateProperties(
             roadPartLength: roadPartLength,
@@ -557,7 +545,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         );
     }
 
-    void Auto_Start()
+    private void Auto_Start()
     {
         auto_currCurveCount = 0;
         if (auto_currCurveCount < auto_maxCurveCount)
@@ -567,13 +555,13 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         }
     }
 
-    void Auto_Stop()
+    private void Auto_Stop()
     {
         auto_generating = false;
         runningLineSearch = false;
     }
 
-    protected void ExportTrack()
+    private void ExportTrack()
     {
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
 
@@ -625,7 +613,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         });
     }
 
-    protected string SplineToPointsString()
+    private string SplineToPointsString()
     {
         StringBuilder sb = new();
         bool first = true;
@@ -640,7 +628,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         return sb.ToString();
     }
 
-    protected string SplineToControlsString()
+    private string SplineToControlsString()
     {
         StringBuilder sb = new();
         bool first = true;
@@ -657,14 +645,12 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         return sb.ToString();
     }
 
-    EnergyCurve GeneratePolyline()
+    public EnergyCurve GeneratePolyline()
     {
-        Debug.Log("Generating Polyline");
         ResetParameters();
 
-        Curve = new(Config);
-
-        return Curve;
+        SetEnergyCurve(new(Config));
+        return GetEnergyCurve();
     }
 
     void ResetParameters()
@@ -678,12 +664,12 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     void ResetPolyline()
     {
         ResetParameters();
-        Curve.Reset(Config);
+        GetEnergyCurve().Reset(Config);
     }
 
     void PrintPolyline()
     {
-        List<Vector2> polyline = Curve.Polyline;
+        List<Vector2> polyline = GetEnergyCurve().Polyline;
         string output = "";
         output += '[';
         for (int i = 0; i < polyline.Count; i++)
@@ -709,9 +695,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     {
         steps++;
 
-        Tuple<bool, bool> returnedTuple = Curve.ComputeLineSearchStep(repulsionType, useBarnesHut, useBackproj);
-        bool goodStep = returnedTuple.Item1;
-        bool shouldContinue = returnedTuple.Item2;
+        (bool goodStep, bool shouldContinue) = GetEnergyCurve().ComputeLineSearchStep(repulsionType, useBarnesHut, useBackproj);
         if (!shouldContinue) runningLineSearch = false;
 
         // Only if we're actively running the simulation and not just doing a single step, because we want to be able to force more steps
@@ -719,7 +703,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         {
             ls_currentStep++;
 
-            if (Curve.normZero)
+            if (GetEnergyCurve().normZero)
             {
                 Debug.Log("Stopped because flow is near a local minimum.");
                 runningLineSearch = false;
@@ -728,7 +712,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             if (!goodStep)
             {
                 numStuckIterations++;
-                if (numStuckIterations >= 3 && Curve.TargetLengthReached())
+                if (numStuckIterations >= 3 && GetEnergyCurve().TargetLengthReached())
                 {
                     Debug.Log("Stopped because flow hasn't made progress in a while");
                     runningLineSearch = false;
@@ -745,8 +729,8 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
             }
         }
 
-        float avgLength = Curve.TotalLength() / Curve.NumEdges();
-        if (avgLength > 2 * Curve.initialAvgLength && subdivideCount < subdivideLimit)
+        float avgLength = GetEnergyCurve().TotalLength() / GetEnergyCurve().NumEdges();
+        if (avgLength > 2 * GetEnergyCurve().initialAvgLength && subdivideCount < subdivideLimit)
         {
             //Debug.Log(avgLength);
             //Debug.Log(curve.initialAvgLength);
@@ -759,13 +743,13 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
 
     private void SubdivideCurve()
     {
-        EnergyCurve subdivided = Curve.Subdivide();
+        EnergyCurve subdivided = GetEnergyCurve().Subdivide();
         //ReplaceNetwork(subdivided); //with network = subdivided;
     }
 
     void GeneateBezierSpline()
     {
-        roadSpline = new(PolylineToBezier.Convert(Curve.Polyline, epsilon, psi), true, true);
+        roadSpline = new(PolylineToBezier.Convert(GetEnergyCurve().Polyline, epsilon, psi), true, true);
         //Debug.Log(bezierSpline);
     }
 
@@ -777,7 +761,7 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
     void ScaleCurveToFitWidth()
     {
         float width = roadSpline.CalculateMinimumDistance();
-        float newWidthMultiplier = width / object_road.mesh.bounds.size.x;
+        float newWidthMultiplier = width / GetObject_road().mesh.bounds.size.x;
         roadSpline.ScaleByT(WidthMultiplier / newWidthMultiplier);
     }
 
@@ -786,121 +770,51 @@ public class ControlWindow_PlayMode : ToolWindow_PlayMode
         RegenerateRoad();
     }
 
-    void RegenerateRoad()
-    {
-        Debug.Log("Not functional at the moment");
-        /*
-        RoadGen.GenerateRoad_WholeParts(
-            obj.transform,
-            roadSpline,
-            WidthMultiplier,
-            HeightMultiplier,
-            crossingShape,
-            new()
-            {
-                {
-                    TopologyType.Normal,
-                    new(RoadObjectWrapper.road.mesh, RoadObjectWrapper.road.materials, roadPartLength)
-                },
-                {
-                    TopologyType.BridgeAscent,
-                    new(RoadObjectWrapper.bridgeAscent.mesh, RoadObjectWrapper.bridgeAscent.materials, BridgeAscentLength())
-                },
-                {
-                    TopologyType.Bridge,
-                    new(RoadObjectWrapper.bridge.mesh, RoadObjectWrapper.bridge.materials, roadPartLength)
-                },
-                {
-                    TopologyType.BridgeDescent,
-                    new(RoadObjectWrapper.bridgeDescent.mesh, RoadObjectWrapper.bridgeDescent.materials, BridgeDescentLength())
-                },
-                {
-                    TopologyType.Crossing,
-                    new(RoadObjectWrapper.crossing.mesh, RoadObjectWrapper.crossing.materials, roadPartLength)
-                },
-                {
-                    TopologyType.Ramp,
-                    new(RoadObjectWrapper.ramp.mesh, RoadObjectWrapper.ramp.materials, RampLength())
-                }
-            }
-        );
-        */
-
-    }
-
     float RoadPartWidth()
     {
-        return object_road.mesh.bounds.size.x * WidthMultiplier;
+        return GetObject_road().mesh.bounds.size.x * WidthMultiplier;
     }
 
-    float BridgeAscentLength()
+    protected float BridgeAscentLength()
     {
-        return object_bridgeAscent.mesh.bounds.size.z * FixedPartLengthMultiplier;
+        return GetObject_bridgeAscent().mesh.bounds.size.z * FixedPartLengthMultiplier;
     }
 
-    float BridgeDescentLength()
+    protected float BridgeDescentLength()
     {
-        return object_bridgeAscent.mesh.bounds.size.z * FixedPartLengthMultiplier;
+        return GetObject_bridgeAscent().mesh.bounds.size.z * FixedPartLengthMultiplier;
     }
 
-    float RampLength()
+    protected float RampLength()
     {
-        return object_ramp.mesh.bounds.size.z * FixedPartLengthMultiplier;
+        return GetObject_ramp().mesh.bounds.size.z * FixedPartLengthMultiplier;
     }
 
+    #region abstract methods
+    public abstract void RegenerateRoad();
+    protected abstract void LoadMap();
+    protected abstract void SaveMap();
+    protected abstract void ExportPrefab();
 
-    void LoadMap()
-    {
-        Debug.Log("Not functional at the moment");
-        /*
-        SerializedMapObject smo = SerializedMapObject.LoadFromFile(mapObjectName);
-        roadSpline = smo.roadSpline;
-        UpdateTopologyHandler(); // For new spline
-        TopologyHandler.SetTopologies(smo.topologies, smo.fourPercCrossings_1D);
-        */
-    }
-
-    void SaveMap()
-    {
-        Debug.Log("Not functional at the moment");
-        /*
-        SerializedMapObject smo = new(roadSpline, TopologyHandler.topologies, TopologyHandler.fourPercCrossings);
-        smo.SaveToFile(mapObjectName);
-        */
-    }
-
-    void ExportPrefab()
-    {
-        Debug.Log("Not functional at the moment");
-        /*
-        string baseObjectsPath = "Assets/Resources/Maps/Generated/Objects";
-        AssetDatabase.CreateFolder(baseObjectsPath, mapObjectName);
-        string prefabPath = $"{baseObjectsPath}/{mapObjectName}";
-        AssetDatabase.CreateFolder(prefabPath, "Meshes");
-        string meshesPath = $"{prefabPath}/Meshes";
-
-        GameObject saveObject = Instantiate(RoadObjectWrapper.gameObject);
-        saveObject.name = mapObjectName;
-        saveObject.tag = "Untagged";
-        DestroyImmediate(saveObject.transform.GetComponent<RoadObjectW>());
-
-        var filters = saveObject.GetComponentsInChildren<MeshFilter>();
-        for (int i = 0; i < filters.Length; i++)
-        {
-            MeshFilter filter = filters[i];
-            Mesh mesh = filter.sharedMesh;
-            AssetDatabase.CreateAsset(mesh, $"{meshesPath}/{i + 1}_{filter.gameObject.name}.asset"); // Creating the Asset suffices
-        }
-
-        PrefabUtility.SaveAsPrefabAsset(saveObject, $"{prefabPath}/{mapObjectName}.prefab", out bool success);
-        if (success == true)
-            Debug.Log("Prefab was saved successfully");
-        else
-            Debug.Log("Prefab failed to save" + success);
-
-        DestroyImmediate(saveObject);
-        */
-    }
+    #region GUI methods
+    protected abstract void CreateSection(string name, Action content);
+    protected abstract void CreateSubSection(string name, Action content);
+    protected abstract void CreateSubSubSection(string name, Action content);
+    protected abstract void CreateLabel(string name, int fontSize = 12);
+    protected abstract void CreateTextField(string name, ref string input);
+    protected abstract void CreateIntField(string name, ref int input);
+    protected abstract void CreateFloatField(string name, ref float input);
+    protected abstract void CreateVector2Field(string name, ref Vector2 input);
+    protected abstract void CreateButton(string name, Action callback);
+    protected abstract void CreateCheckbox(string name, ref bool trigger);
+    protected abstract void CreateCheckbox_Dict<T>(string name, Dictionary<T, bool> dict, T key);
+    protected abstract void CreateSlider(ref int value, string text, int start, int end);
+    protected abstract void CreateSliderFloat(ref float value, string text, float start, float end, float snap = 0.5f);
+    protected abstract void CreateCurveField(string name, ref AnimationCurve curve);
+    protected abstract void CreateFoldout(string name, Action content, int fontSize, int bottomSpacing = 0);
+    protected abstract void CreateEnumSelection<T>(string name, T currentSelection, Action<T> onValueChanged) where T : Enum;
+    #endregion
+    #endregion
 }
 
 enum Auto_Stage
