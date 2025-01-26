@@ -117,7 +117,7 @@ public class RoadSpline : Spline
             for (int j = i + 1; j < points.Count; j++)
             {
                 if (indicesInCrossings.Contains(j)) continue;
-                //if (Mathf.Min(Mathf.Abs(i - j + points.Count), Mathf.Abs(i - j - points.Count), Mathf.Abs(i - j)) < minPointOffset) continue;
+                if (Mathf.Min(Mathf.Abs(i - j + points.Count), Mathf.Abs(i - j - points.Count), Mathf.Abs(i - j)) < minPointOffset) continue;
 
                 var (t, u) = MyMath.Intersection(points[i], unitNormals[i], points[j], unitNormals[j]);
 
