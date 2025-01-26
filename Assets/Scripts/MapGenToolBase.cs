@@ -59,7 +59,7 @@ public abstract class MapGenToolBase
     }
 
     #region Constraints
-    float lengthScale = 6;
+    [SerializeField] [HideInInspector()] float lengthScale = 6; // todo: serialization doesn't seem to work anymore after the refactoring
 
     [SerializeField]
     Dict_ConstraintType_Bool usingConstraint = new();
@@ -456,7 +456,7 @@ public abstract class MapGenToolBase
                 CreateCheckbox("Auto Update Road", ref autoUpdateRoad);
                 CreateButton("Generate Road", GenerateRoad);
             });
-#endregion
+            #endregion
 
             #region Operations
             CreateSubSection("Operations", () =>
@@ -470,7 +470,7 @@ public abstract class MapGenToolBase
             });
             #endregion
         });
-#endregion
+        #endregion
 
         UpdateTopologyHandler();
     }
@@ -506,6 +506,7 @@ public abstract class MapGenToolBase
                         auto_stage = Auto_Stage.FittingWidth;
                     break;
                 case Auto_Stage.FittingWidth:
+                    UpdateTopologyHandler(); // For the Editor tool, this might not have been called yet
                     ScaleCurveToFitWidth();
                     auto_stage = Auto_Stage.Finished;
                     break;
