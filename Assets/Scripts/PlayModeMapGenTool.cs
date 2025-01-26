@@ -307,7 +307,10 @@ public class PlayModeMapGenTool : MonoBehaviour
             // Background
             GUI.Box(new Rect(0, 0, maxWidth, Screen.height), GUIContent.none);
 
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10);
             GUILayout.BeginVertical();
+            GUILayout.Space(10);
 
             // Begin the ScrollView
             scrollPosition = GUI.BeginScrollView(
@@ -320,6 +323,7 @@ public class PlayModeMapGenTool : MonoBehaviour
 
             GUI.EndScrollView();
             GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
         }
 
         public override void RegenerateRoad()
@@ -434,27 +438,16 @@ public class PlayModeMapGenTool : MonoBehaviour
                 fontSize = fontSize,
                 fontStyle = FontStyle.Bold,
                 normal = {
-                textColor = Color.white              // Normal text color, for example black (change as needed)
-            },
+                    textColor = Color.white
+                },
                 hover = {
-                background = Texture2D.whiteTexture, // A plain white texture
-                textColor = Color.blue               // Highlight text color, for example blue (change as needed)
-            }
+                    background = Texture2D.whiteTexture,
+                    textColor = Color.blue
+                }
             };
 
 
             int foldoutHash = content.GetHashCode();
-
-            /*
-            Rect position = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight * 2);
-            foldouts[foldoutHash] = EditorGUI.Foldout(
-                position,
-                foldouts.ContainsKey(foldoutHash) && foldouts[foldoutHash],
-                name,
-                true,
-                foldoutStyle
-            );
-            */
 
             foldouts[foldoutHash] = GUILayout.Toggle(
                 foldouts.ContainsKey(foldoutHash) && foldouts[foldoutHash],
