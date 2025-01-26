@@ -326,8 +326,7 @@ GameObject:
   - component: {fileID: 1939582702}
   - component: {fileID: 1939582701}
   - component: {fileID: 1939582700}
-  - component: {fileID: 1939582704}
-  - component: {fileID: 1939582703}
+  - component: {fileID: 1939582705}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -401,7 +400,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
---- !u!114 &1939582703
+--- !u!114 &1939582705
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -410,25 +409,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1939582699}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5f52dff434902147b55d048c467256f, type: 3}
+  m_Script: {fileID: 11500000, guid: d2efd0fe6bbf1f04fa312311304e033a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxWidth: 400
-  contentHeight: 2000
-  genMode: 1
-  repulsionType: 0
-  curveClosed: 1
-  showBezier: 1
-  showBezierHandles: 1
-  showPolyLine: 1
-  showPolyPoints: 1
-  showObstacles: 1
-  roadSpline:
-    controls:
-      myList: []
-    isClosed: 0
-    autoSetControlPoints: 0
-    _segmentLengths: []
   object_road:
     mesh: {fileID: 48350004328225376, guid: 00f74cef96b9631439634d4da6941ca7, type: 3}
     numMaterials: 2
@@ -475,23 +458,11 @@ MonoBehaviour:
     - {fileID: 2100000, guid: 1c473c4f4f372ec4bb5249d1fb2c33c4, type: 2}
     - {fileID: 2100000, guid: d0f5a164252cc344890a39085e5ec297, type: 2}
     showFoldout: 0
---- !u!114 &1939582704
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1939582699}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f2f423e44ea63f4db87ba35e4e9145b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
   mat: {fileID: 2100000, guid: 1832e90f92c191040a099f47ac22b4cf, type: 2}
   controlHandleColor: {r: 0.2, g: 0.5, b: 0.2, a: 1}
-  anchorHandleColor: {r: 1, g: 0.88235295, b: 0.2627451, a: 1}
-  lineColor: {r: 0.03773582, g: 0.03773582, b: 0.03773582, a: 1}
-  splineColor: {r: 0.2, g: 0.2, b: 0.5, a: 1}
+  anchorHandleColor: {r: 1, g: 1, b: 0.2627451, a: 1}
+  lineColor: {r: 0, g: 0, b: 0, a: 1}
+  splineColor: {r: 0.20000002, g: 0.20000002, b: 0.5019608, a: 1}
   polyColor: {r: 1, g: 1, b: 1, a: 1}
   obstacleColor: {r: 0.34117648, g: 0.34117648, b: 0.34117648, a: 1}
   bezierWidth: 0.5
