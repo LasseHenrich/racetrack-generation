@@ -20,7 +20,8 @@ public class EditorMapGenTool : EditorWindow
     /// </summary>
     void OnEnable()
     {
-        mapGenTool = new MapGenTool();
+        mapGenTool ??= new MapGenTool(); // only instantiate if not still available
+        mapGenTool.InitAfterReload();
 
         SceneView.duringSceneGui += MyUpdateWrapper;
     }
@@ -62,10 +63,9 @@ public class EditorMapGenTool : EditorWindow
             return;
         }
 
-        mapGenTool.MyUpdate();
-
         try
         {
+            mapGenTool.MyUpdate();
             Draw();
         }
         catch (NullReferenceException)
@@ -231,10 +231,10 @@ public class EditorMapGenTool : EditorWindow
     }
     #endregion
 
-
+    [Serializable] // Serializable here to save and keep everything (what we can) when editor reloads / scripts recompile
     private class MapGenTool : MapGenToolBase
     {
-         Vector2 scrollPos;
+        Vector2 scrollPos;
 
         public GUIStyle style_Section;
         public GUIStyle style_Label;
@@ -270,7 +270,10 @@ public class EditorMapGenTool : EditorWindow
         public MapGenTool()
         {
             foldouts = new();
-             
+        }
+
+        public void InitAfterReload()
+        {
             try
             {
                 GetEnergyCurve().TryInitVertsEdgesFromSerialized();

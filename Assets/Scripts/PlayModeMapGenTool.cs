@@ -61,8 +61,13 @@ public class PlayModeMapGenTool : MonoBehaviour
     void OnGUI()
     {
         // You can only call GUI functions in OnGUI()
-        mapGenTool.style_Label = new GUIStyle(GUI.skin.label);
+        mapGenTool.style_Label = new GUIStyle(GUI.skin.label) { fontSize = 16 };
         mapGenTool.style_InlineLabel = new GUIStyle(mapGenTool.style_Label) { alignment = TextAnchor.MiddleLeft };
+        mapGenTool.style_TextField = new GUIStyle(GUI.skin.textField) { fontSize = 16 };
+        mapGenTool.style_Button = new GUIStyle(GUI.skin.button) { fontSize = 16 };
+        mapGenTool.style_Slider = new GUIStyle(GUI.skin.horizontalSlider) { fontSize = 16 };
+        mapGenTool.style_SliderThumb = new GUIStyle(GUI.skin.horizontalSliderThumb) { fontSize = 16 };
+        mapGenTool.style_Toggle = new GUIStyle(GUI.skin.toggle) { fontSize = 16 };
 
         mapGenTool.UpdateUI();
     }
@@ -264,6 +269,11 @@ public class PlayModeMapGenTool : MonoBehaviour
 
         public GUIStyle style_Label;
         public GUIStyle style_InlineLabel;
+        public GUIStyle style_TextField;
+        public GUIStyle style_Button;
+        public GUIStyle style_Slider;
+        public GUIStyle style_SliderThumb;
+        public GUIStyle style_Toggle;
 
         Dictionary<int, bool> foldouts;
 
@@ -371,7 +381,7 @@ public class PlayModeMapGenTool : MonoBehaviour
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(name, style_InlineLabel);
-            input = GUILayout.TextField(input);
+            input = GUILayout.TextField(input, style_TextField);
             GUILayout.EndHorizontal();
         }
 
@@ -379,7 +389,7 @@ public class PlayModeMapGenTool : MonoBehaviour
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(name, style_InlineLabel);
-            input = int.TryParse(GUILayout.TextField(input.ToString()), out int result) ? result : input;
+            input = int.TryParse(GUILayout.TextField(input.ToString(), style_TextField), out int result) ? result : input;
             GUILayout.EndHorizontal();
         }
 
@@ -387,7 +397,7 @@ public class PlayModeMapGenTool : MonoBehaviour
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label(name, style_InlineLabel);
-            input = float.TryParse(GUILayout.TextField(input.ToString()), out float result) ? result : input;
+            input = float.TryParse(GUILayout.TextField(input.ToString(), style_TextField), out float result) ? result : input;
             GUILayout.EndHorizontal();
         }
 
@@ -399,30 +409,30 @@ public class PlayModeMapGenTool : MonoBehaviour
 
         protected override void CreateButton(string name, Action callback)
         {
-            if (GUILayout.Button(name)) callback();
+            if (GUILayout.Button(name, style_Button)) callback();
         }
 
         protected override void CreateCheckbox(string name, ref bool trigger)
         {
-            trigger = GUILayout.Toggle(trigger, name);
+            trigger = GUILayout.Toggle(trigger, name, style_Toggle);
         }
 
         protected override void CreateCheckbox_Dict<T>(string name, Dictionary<T, bool> dict, T key)
         {
-            dict[key] = GUILayout.Toggle(dict[key], name);
+            dict[key] = GUILayout.Toggle(dict[key], name, style_Toggle);
         }
 
         protected override void CreateSlider(ref int value, string text, int start, int end)
         {
             GUILayout.Label($"{text}: {value}");
-            float rawValue = GUILayout.HorizontalSlider(value, start, end);
+            float rawValue = GUILayout.HorizontalSlider(value, start, end, style_Slider, style_SliderThumb);
             value = Mathf.RoundToInt(rawValue);
         }
 
         protected override void CreateSliderFloat(ref float value, string text, float start, float end, float snap = 0.5f)
         {
             GUILayout.Label($"{text}: {value:F1}");
-            float rawValue = GUILayout.HorizontalSlider(value, start, end);
+            float rawValue = GUILayout.HorizontalSlider(value, start, end, style_Slider, style_SliderThumb);
             value = Mathf.Round(rawValue / snap) * snap;
         }
 
@@ -483,12 +493,12 @@ public class PlayModeMapGenTool : MonoBehaviour
                 bool isSelected = currentSelection.Equals(enumValue);
 
                 // Create a button with custom styling based on selection
-                GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+                GUIStyle buttonStyle = new (style_Button)
                 {
                     fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal,
                     normal = {
-                textColor = isSelected ? Color.green : Color.white
-            }
+                        textColor = isSelected ? Color.green : Color.white
+                    }
                 };
 
                 // Create the button
